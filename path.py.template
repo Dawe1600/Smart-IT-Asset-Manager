@@ -1,0 +1,19 @@
+# C:\Programowanie\auto_ewidencja\path.py
+
+# Słownik konfiguracyjny.
+# Klucz (key) to PEŁNA ścieżka do folderu, który ma być monitorowany.
+# Wartość (value) to "przedrostek" (prefix) dla plików w tym folderze.
+# WAŻNE: W ścieżkach w systemie Windows używaj podwójnych ukośników '' zamiast pojedynczych ''.
+
+# PRZYKŁAD:
+# FOLDERS_CONFIG = {
+#     'C:\Users\John\Desktop\Nowe_faktury': 'FAKTURA-',
+#     'D:\Projekty\Graficzne\logo': 'LOGO-'
+# }
+
+FOLDERS_CONFIG = {
+    # Tutaj dodaj swoje wpisy. Usuń ten komentarz i odkomentuj przykłady poniżej lub dodaj własne.
+    # Przykład:
+    # 'C:\Path\To\Your\First\Folder': 'PREFIX1-',
+    # 'C:\Path\To\Your\Second\Folder': 'PREFIX2-',
+}
