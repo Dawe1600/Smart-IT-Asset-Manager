@@ -5,6 +5,7 @@ import subprocess
 import threading
 import keyboard
 import shutil
+import json
 from PIL import Image
 
 # Import nowej biblioteki Google
@@ -15,33 +16,85 @@ from path import LOCATIONS_CONFIG, MONITORS_CONFIG, DOWNLOADS_FOLDER, API
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-# Inicjalizacja klienta nowej biblioteki
 client = genai.Client(api_key=API)
 
 # =====================================================================
-# WSPÓLNE FUNKCJE LOGICZNE
+# WSPÓLNE FUNKCJE LOGICZNE I SCHOWEK
 # =====================================================================
 
 def wait_for_file_ready(filepath, max_retries=20, delay=1):
-    """Czeka, aż plik zostanie w pełni zapisany na dysku."""
     for _ in range(max_retries):
         if not os.path.exists(filepath):
             return False
         try:
-            with open(filepath, 'a'):
-                pass
+            with open(filepath, 'a'): pass
             return True
         except (IOError, PermissionError):
             time.sleep(delay)
     return False
 
+def wait_for_single_enter():
+    """Twardo czeka na jedno fizyczne wciśnięcie klawisza ENTER."""
+    time.sleep(0.5)
+    while True:
+        event = keyboard.read_event()
+        if event.event_type == keyboard.KEY_DOWN and event.name == 'enter':
+            break
+    time.sleep(0.3) # Krótki czas na odpuszczenie klawisza
+
+def set_clipboard(text):
+    """Pomocnicza funkcja do wrzucania tekstu do schowka."""
+    subprocess.run(["powershell", "-command", f"Set-Clipboard -Value '{text}'"], creationflags=subprocess.CREATE_NO_WINDOW)
+
+# --------------------------
+# STANDARDOWY SCHOWEK (Kasy, UPS itp.)
+# --------------------------
+def wait_for_enter_and_copy_tag(tag):
+    print(f" [Oczekiwanie] Nasłuchuję klawisza ENTER dla tagu: {tag}...")
+    wait_for_single_enter()
+    try:
+        set_clipboard(tag)
+        print(f" ---> SUKCES! Tag '{tag}' załadowany do schowka!\n")
+    except Exception as e:
+        print(f"[!] Błąd przy kopiowaniu tagu: {e}")
+
+# --------------------------
+# NOWY SCHOWEK DLA AIO (Sekwencja 4 kroków)
+# --------------------------
+def aio_clipboard_sequence(filepath, nazwa, model, id_prod):
+    print("\n--- ROZPOCZYNAM SEKWENCJĘ WYPEŁNIANIA DLA AIO ---")
+    try:
+        # Krok 1: Ścieżka
+        set_clipboard(filepath)
+        print(f"[AIO Krok 1/4] Ścieżka zdjęcia skopiowana. Wklej ją w przeglądarce i zatwierdź ENTER.")
+        wait_for_single_enter()
+
+        # Krok 2: Nazwa (Tag)
+        set_clipboard(nazwa)
+        print(f"[AIO Krok 2/4] TAG ({nazwa}) skopiowany. Wklej go i zatwierdź ENTER.")
+        wait_for_single_enter()
+
+        # Krok 3: Model
+        set_clipboard(model)
+        print(f"[AIO Krok 3/4] Model ({model}) skopiowany. Wklej go i zatwierdź ENTER.")
+        wait_for_single_enter()
+
+        # Krok 4: ID Produktu
+        set_clipboard(id_prod)
+        print(f"[AIO Krok 4/4] ID Produktu ({id_prod}) skopiowane. Gotowe! Możesz wkleić.\n")
+        print("-------------------------------------------------")
+    except Exception as e:
+        print(f"[!] Błąd w trakcie sekwencji schowka AIO: {e}")
+
+# =====================================================================
+# FUNKCJE PRZENOSZENIA ZDJĘĆ
+# =====================================================================
+
 def get_highest_number(folder_path, prefix):
-    """Przeszukuje folder i znajduje najwyższy numer dla danego prefixu."""
     highest = 0
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
         return 0
-        
     pattern = re.compile(r"^" + re.escape(prefix) + r"(\d{4})\.")
     for filename in os.listdir(folder_path):
         match = pattern.search(filename)
@@ -51,36 +104,10 @@ def get_highest_number(folder_path, prefix):
                 highest = num
     return highest
 
-def wait_for_enter_and_copy_tag(tag):
-    """Działa w tle: czeka na klawisz ENTER, upewniając się, że nie złapie starych kliknięć."""
-    # 1. Dajemy ułamek sekundy na "ostygnięcie" klawiatury po wcześniejszych akcjach
-    time.sleep(0.5)
-    
-    print(f" [Oczekiwanie] Nasłuchuję klawisza ENTER dla tagu: {tag}...")
-    
-    # 2. Czekamy na wyraźne, fizyczne wciśnięcie klawisza Enter
-    while True:
-        event = keyboard.read_event()
-        if event.event_type == keyboard.KEY_DOWN and event.name == 'enter':
-            break
-
-    # 3. Zapas czasu, by przeglądarka zdążyła zatwierdzić formularz
-    time.sleep(0.5) 
-    
-    try:
-        subprocess.run(
-            ["powershell", "-command", f"Set-Clipboard -Value '{tag}'"],
-            creationflags=subprocess.CREATE_NO_WINDOW
-        )
-        print(f" ---> SUKCES! Tag '{tag}' załadowany do schowka!\n")
-    except Exception as e:
-        print(f"[!] Błąd przy kopiowaniu tagu: {e}")
-
-def rename_and_process_file(src_path, target_folder, prefix):
-    """Zmienia nazwę pliku, przenosi go i odpala operacje na schowku."""
+def rename_and_process_standard_file(src_path, target_folder, prefix):
+    """Obsługa standardowych urządzeń z numeracją prefixową."""
     current_highest = get_highest_number(target_folder, prefix)
     next_number = current_highest + 1
-    
     ext = os.path.splitext(src_path)[1]
     new_name = f"{prefix}{next_number:04d}{ext}"
     new_path = os.path.join(target_folder, new_name)
@@ -88,24 +115,54 @@ def rename_and_process_file(src_path, target_folder, prefix):
     try:
         shutil.move(src_path, new_path)
         print(f"[{prefix}] Sukces! Plik gotowy -> {new_name}")
-        
-        # 1. Ścieżka do schowka
-        subprocess.run(["powershell", "-command", f"Set-Clipboard -Value '{new_path}'"], creationflags=subprocess.CREATE_NO_WINDOW)
+        set_clipboard(new_path)
         print(f"[{prefix}] Ścieżka skopiowana! Wklej ją w przeglądarce i wciśnij ENTER.")
         
-        # 2. Nasłuch na ENTER i sam TAG (nazwa bez rozszerzenia)
         tag_sprzetu = os.path.splitext(new_name)[0]
         threading.Thread(target=wait_for_enter_and_copy_tag, args=(tag_sprzetu,), daemon=True).start()
-        
     except Exception as e:
         print(f"[{prefix}] Błąd przy obróbce pliku: {e}")
+
+def process_aio_file(src_path, target_folder, data_json):
+    """Specjalna obsługa komputerów AIO - własna nazwa i zabezpieczenie przed nadpisaniem."""
+    if not os.path.exists(target_folder):
+        os.makedirs(target_folder, exist_ok=True)
+
+    nazwa = data_json.get("nazwa_komputera", "Nieznany_AIO").strip()
+    model = data_json.get("model", "").strip()
+    id_prod = data_json.get("id_produktu", "").strip()
+
+    # Usuwamy znaki niedozwolone w nazwach plików w Windowsie
+    safe_name = re.sub(r'[\\/*?:"<>|]', "", nazwa)
+    ext = os.path.splitext(src_path)[1]
+    
+    # Zabezpieczenie przed duplikatami
+    new_name = f"{safe_name}{ext}"
+    counter = 1
+    while os.path.exists(os.path.join(target_folder, new_name)):
+        new_name = f"{safe_name}_{counter}{ext}"
+        counter += 1
+
+    new_path = os.path.join(target_folder, new_name)
+
+    try:
+        shutil.move(src_path, new_path)
+        print(f"[AIO] Sukces! Zapisano plik jako -> {new_name}")
+        
+        # Uruchamiamy sekwencję w tle
+        threading.Thread(
+            target=aio_clipboard_sequence, 
+            args=(new_path, nazwa, model, id_prod), 
+            daemon=True
+        ).start()
+    except Exception as e:
+        print(f"[AIO] Błąd przy przenoszeniu pliku AIO: {e}")
 
 # =====================================================================
 # HANDLERY WATCHDOGA
 # =====================================================================
 
 class DownloadsAIHandler(FileSystemEventHandler):
-    """Nasłuchuje folderu Pobrane, odpala AI."""
     def __init__(self, location_config):
         self.location_config = location_config
 
@@ -122,38 +179,56 @@ class DownloadsAIHandler(FileSystemEventHandler):
 
         if not wait_for_file_ready(src_path): return
 
-        print(f"\n[AI] Wykryto plik: {filename}. Wysyłam do analizy...")
+        print(f"\n[AI] Wykryto plik: {filename}. Czytam dane i układam JSON-a...")
         
+        prompt = """
+        Jesteś asystentem do inwentaryzacji sprzętu IT. Przeanalizuj to zdjęcie i zwróć odpowiedź WYŁĄCZNIE w formacie JSON, bez żadnego formatowania markdown (np. bez znaczników ```json) i bez dodatkowego tekstu.
+        Zwróć uwagę na wielkie i małe litery oraz nie myl zera z literą O.
+
+        Wymagany format:
+        {
+          "kategoria": "Kasa Fiskalna" LUB "Telefon Stacjonarny" LUB "UPS" LUB "Skaner kodów" LUB "Monitor" LUB "Komputer AIO",
+          "nazwa_komputera": "odczytana nazwa urządzenia (tylko w przypadku AIO), np. S-PKar-R4, zostaw puste jeśli to inna kategoria",
+          "model": "odczytany model pod nazwą (tylko dla AIO), np. ASUS Vivo AiO V241EA_V241EA, zostaw puste jeśli inna kategoria",
+          "id_produktu": "odczytany Identyfikator produktu (tylko dla AIO), zostaw puste jeśli inna kategoria"
+        }
+        """
+
         try:
             img = Image.open(src_path)
-            prompt = (
-                "Jesteś asystentem do inwentaryzacji sprzętu IT. "
-                "Wybierz JEDNĄ kategorię i zwróć TYLKO jej dokładną nazwę (bez kropek): "
-                "Kasa Fiskalna, Telefon Stacjonarny, UPS, Skaner kodów, Monitor."
-            )
             response = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt, img])
-            kategoria = response.text.strip().replace(".", "")
             
-            print(f"[AI] Wynik analizy: {kategoria}")
-
-            # Wyjątek dla monitorów
-            if kategoria == "Monitor":
-                print(f"[AI] Wykryto Monitor! Zostawiam plik '{filename}' w folderze Pobrane.")
-                print("[AI] -> Przenieś go ręcznie do folderu P24 lub P27.")
+            # Próbujemy odszukać JSON-a w odpowiedzi (na wypadek, gdyby AI mimo wszystko dodało jakieś słowa)
+            match = re.search(r'\{.*\}', response.text, re.DOTALL)
+            if not match:
+                print(f"[!] AI zwróciło nierozpoznawalny format: {response.text}")
                 return
+            
+            dane = json.loads(match.group(0))
+            kategoria = dane.get("kategoria", "Nieznana")
 
-            if kategoria in self.location_config:
+            print(f"[AI] Rozpoznana Kategoria: {kategoria}")
+
+            if kategoria == "Monitor":
+                print(f"[AI] Wykryto Monitor! Zostawiam plik '{filename}' w folderze Pobrane (przenieś do P24 lub P27).")
+                return
+            elif kategoria == "Komputer AIO":
+                print(f"[AI OCR] Zczytano AIO - Nazwa: {dane.get('nazwa_komputera')} | Model: {dane.get('model')}")
+                target_folder = self.location_config["Komputer AIO"][0]
+                process_aio_file(src_path, target_folder, dane)
+            elif kategoria in self.location_config:
                 target_folder, prefix = self.location_config[kategoria]
-                rename_and_process_file(src_path, target_folder, prefix)
+                rename_and_process_standard_file(src_path, target_folder, prefix)
             else:
-                print(f"[!] Nieznana kategoria: {kategoria}")
+                print(f"[!] Nieznana kategoria zwrócona z AI: {kategoria}")
                 
+        except json.JSONDecodeError as json_err:
+             print(f"[AI Error] Błąd podczas parsowania JSON: {json_err}")
+             print(f"Surowa odpowiedź modelu: {response.text}")
         except Exception as e:
-            print(f"[AI Error] Błąd AI: {e}")
-
+            print(f"[AI Error] Główny Błąd AI: {e}")
 
 class ManualMonitorsHandler(FileSystemEventHandler):
-    """Nasłuchuje folderów P24 i P27 pod kątem ręcznie przeciągniętych zdjęć."""
     def __init__(self, target_folder, prefix):
         self.target_folder = target_folder
         self.prefix = prefix
@@ -166,16 +241,12 @@ class ManualMonitorsHandler(FileSystemEventHandler):
 
     def _process_dropped_file(self, src_path):
         filename = os.path.basename(src_path)
-        
-        # Ignorujemy pliki, które już mają poprawną nazwę (np. DELL-P24-0010.jpg) 
-        # w przeciwnym razie wpadniemy w nieskończoną pętlę!
         if filename.startswith(self.prefix) or not filename.lower().endswith(('.jpg', '.jpeg', '.png')):
             return
-            
         if not wait_for_file_ready(src_path): return
 
         print(f"\n[RĘCZNE] Wykryto przeciągnięty monitor: {filename}")
-        rename_and_process_file(src_path, self.target_folder, self.prefix)
+        rename_and_process_standard_file(src_path, self.target_folder, self.prefix)
 
 # =====================================================================
 # START APLIKACJI
@@ -192,7 +263,6 @@ def show_menu_and_get_location():
     print("=======================================")
     
     opcje = {"1": "SIEDLEC", "2": "KARGOWA", "3": "WIELICHOWO", "4": "PRZEMET"}
-    
     while True:
         wybor = input("Wpisz numer (1-4) i zatwierdź ENTER: ").strip()
         if wybor in opcje:
@@ -224,7 +294,7 @@ def start_monitoring(location_name):
     
     print("\n--- Nasłuchiwanie uruchomione ---")
     print("Monitorowane:")
-    print(f" - Folder Pobrane: {DOWNLOADS_FOLDER} (AI)")
+    print(f" - Folder Pobrane: {DOWNLOADS_FOLDER} (AI + OCR AIO)")
     print(f" - Foldery ręczne dla monitorów: P24, P27")
     print("Zminimalizuj to okno. Wciśnij Ctrl+C, aby zamknąć.\n")
     
