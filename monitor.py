@@ -19,6 +19,12 @@ from watchdog.events import FileSystemEventHandler
 client = genai.Client(api_key=API)
 
 # =====================================================================
+# GLOBALNE ZABEZPIECZENIE PRZED ZAPĘTLENIEM
+# =====================================================================
+# Przechowuje ścieżki plików przetworzonych w tej sesji, by nie reagować na nie podwójnie
+PROCESSED_FILES = set()
+
+# =====================================================================
 # WSPÓLNE FUNKCJE LOGICZNE I SCHOWEK
 # =====================================================================
 
@@ -40,15 +46,12 @@ def wait_for_single_enter():
         event = keyboard.read_event()
         if event.event_type == keyboard.KEY_DOWN and event.name == 'enter':
             break
-    time.sleep(0.3) # Krótki czas na odpuszczenie klawisza
+    time.sleep(0.3)
 
 def set_clipboard(text):
     """Pomocnicza funkcja do wrzucania tekstu do schowka."""
     subprocess.run(["powershell", "-command", f"Set-Clipboard -Value '{text}'"], creationflags=subprocess.CREATE_NO_WINDOW)
 
-# --------------------------
-# STANDARDOWY SCHOWEK (Kasy, UPS itp.)
-# --------------------------
 def wait_for_enter_and_copy_tag(tag):
     print(f" [Oczekiwanie] Nasłuchuję klawisza ENTER dla tagu: {tag}...")
     wait_for_single_enter()
@@ -58,28 +61,21 @@ def wait_for_enter_and_copy_tag(tag):
     except Exception as e:
         print(f"[!] Błąd przy kopiowaniu tagu: {e}")
 
-# --------------------------
-# NOWY SCHOWEK DLA AIO (Sekwencja 4 kroków)
-# --------------------------
 def aio_clipboard_sequence(filepath, nazwa, model, id_prod):
     print("\n--- ROZPOCZYNAM SEKWENCJĘ WYPEŁNIANIA DLA AIO ---")
     try:
-        # Krok 1: Ścieżka
         set_clipboard(filepath)
-        print(f"[AIO Krok 1/4] Ścieżka zdjęcia skopiowana. Wklej ją w przeglądarce i zatwierdź ENTER.")
+        print(f"[AIO Krok 1/4] Ścieżka skopiowana. Wklej ją w przeglądarce i zatwierdź ENTER.")
         wait_for_single_enter()
 
-        # Krok 2: Nazwa (Tag)
         set_clipboard(nazwa)
         print(f"[AIO Krok 2/4] TAG ({nazwa}) skopiowany. Wklej go i zatwierdź ENTER.")
         wait_for_single_enter()
 
-        # Krok 3: Model
         set_clipboard(model)
         print(f"[AIO Krok 3/4] Model ({model}) skopiowany. Wklej go i zatwierdź ENTER.")
         wait_for_single_enter()
 
-        # Krok 4: ID Produktu
         set_clipboard(id_prod)
         print(f"[AIO Krok 4/4] ID Produktu ({id_prod}) skopiowane. Gotowe! Możesz wkleić.\n")
         print("-------------------------------------------------")
@@ -87,7 +83,7 @@ def aio_clipboard_sequence(filepath, nazwa, model, id_prod):
         print(f"[!] Błąd w trakcie sekwencji schowka AIO: {e}")
 
 # =====================================================================
-# FUNKCJE PRZENOSZENIA ZDJĘĆ
+# FUNKCJE PRZENOSZENIA I ZMIANY NAZWY
 # =====================================================================
 
 def get_highest_number(folder_path, prefix):
@@ -105,7 +101,7 @@ def get_highest_number(folder_path, prefix):
     return highest
 
 def rename_and_process_standard_file(src_path, target_folder, prefix):
-    """Obsługa standardowych urządzeń z numeracją prefixową."""
+    """Obsługa standardowych urządzeń z numeracją prefixową (używane przez AI i ręcznie)."""
     current_highest = get_highest_number(target_folder, prefix)
     next_number = current_highest + 1
     ext = os.path.splitext(src_path)[1]
@@ -113,8 +109,9 @@ def rename_and_process_standard_file(src_path, target_folder, prefix):
     new_path = os.path.join(target_folder, new_name)
     
     try:
+        PROCESSED_FILES.add(new_path.lower()) # Dodajemy do ignorowanych
         shutil.move(src_path, new_path)
-        print(f"[{prefix}] Sukces! Plik gotowy -> {new_name}")
+        print(f"[{prefix}] Sukces! Zapisano plik -> {new_name}")
         set_clipboard(new_path)
         print(f"[{prefix}] Ścieżka skopiowana! Wklej ją w przeglądarce i wciśnij ENTER.")
         
@@ -124,7 +121,7 @@ def rename_and_process_standard_file(src_path, target_folder, prefix):
         print(f"[{prefix}] Błąd przy obróbce pliku: {e}")
 
 def process_aio_file(src_path, target_folder, data_json):
-    """Specjalna obsługa komputerów AIO - własna nazwa i zabezpieczenie przed nadpisaniem."""
+    """Specjalna obsługa komputerów AIO przez AI (odczytuje nazwę, model, id)."""
     if not os.path.exists(target_folder):
         os.makedirs(target_folder, exist_ok=True)
 
@@ -132,11 +129,9 @@ def process_aio_file(src_path, target_folder, data_json):
     model = data_json.get("model", "").strip()
     id_prod = data_json.get("id_produktu", "").strip()
 
-    # Usuwamy znaki niedozwolone w nazwach plików w Windowsie
     safe_name = re.sub(r'[\\/*?:"<>|]', "", nazwa)
     ext = os.path.splitext(src_path)[1]
     
-    # Zabezpieczenie przed duplikatami
     new_name = f"{safe_name}{ext}"
     counter = 1
     while os.path.exists(os.path.join(target_folder, new_name)):
@@ -146,15 +141,11 @@ def process_aio_file(src_path, target_folder, data_json):
     new_path = os.path.join(target_folder, new_name)
 
     try:
+        PROCESSED_FILES.add(new_path.lower()) # Zabezpieczenie przed pętlą
         shutil.move(src_path, new_path)
-        print(f"[AIO] Sukces! Zapisano plik jako -> {new_name}")
+        print(f"[AIO AI] Sukces! Zapisano plik jako -> {new_name}")
         
-        # Uruchamiamy sekwencję w tle
-        threading.Thread(
-            target=aio_clipboard_sequence, 
-            args=(new_path, nazwa, model, id_prod), 
-            daemon=True
-        ).start()
+        threading.Thread(target=aio_clipboard_sequence, args=(new_path, nazwa, model, id_prod), daemon=True).start()
     except Exception as e:
         print(f"[AIO] Błąd przy przenoszeniu pliku AIO: {e}")
 
@@ -163,6 +154,7 @@ def process_aio_file(src_path, target_folder, data_json):
 # =====================================================================
 
 class DownloadsAIHandler(FileSystemEventHandler):
+    """Obsługuje pliki 'multimedia' pobierane do folderu Pobrane."""
     def __init__(self, location_config):
         self.location_config = location_config
 
@@ -177,9 +169,12 @@ class DownloadsAIHandler(FileSystemEventHandler):
         if not filename.startswith("multimedia") or not filename.endswith(('.jpg', '.jpeg', '.png')):
             return
 
+        if src_path.lower() in PROCESSED_FILES:
+            return
+
         if not wait_for_file_ready(src_path): return
 
-        print(f"\n[AI] Wykryto plik: {filename}. Czytam dane i układam JSON-a...")
+        print(f"\n[AI] Wykryto pobrany plik: {filename}. Czytam dane...")
         
         prompt = """
         Jesteś asystentem do inwentaryzacji sprzętu IT. Przeanalizuj to zdjęcie i zwróć odpowiedź WYŁĄCZNIE w formacie JSON, bez żadnego formatowania markdown (np. bez znaczników ```json) i bez dodatkowego tekstu.
@@ -198,7 +193,6 @@ class DownloadsAIHandler(FileSystemEventHandler):
             img = Image.open(src_path)
             response = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt, img])
             
-            # Próbujemy odszukać JSON-a w odpowiedzi (na wypadek, gdyby AI mimo wszystko dodało jakieś słowa)
             match = re.search(r'\{.*\}', response.text, re.DOTALL)
             if not match:
                 print(f"[!] AI zwróciło nierozpoznawalny format: {response.text}")
@@ -210,28 +204,28 @@ class DownloadsAIHandler(FileSystemEventHandler):
             print(f"[AI] Rozpoznana Kategoria: {kategoria}")
 
             if kategoria == "Monitor":
-                print(f"[AI] Wykryto Monitor! Zostawiam plik '{filename}' w folderze Pobrane (przenieś do P24 lub P27).")
+                print(f"[AI] Wykryto Monitor! Zostawiam plik '{filename}' w folderze Pobrane (przenieś ręcznie do P24/P27).")
                 return
             elif kategoria == "Komputer AIO":
-                print(f"[AI OCR] Zczytano AIO - Nazwa: {dane.get('nazwa_komputera')} | Model: {dane.get('model')}")
                 target_folder = self.location_config["Komputer AIO"][0]
                 process_aio_file(src_path, target_folder, dane)
             elif kategoria in self.location_config:
                 target_folder, prefix = self.location_config[kategoria]
                 rename_and_process_standard_file(src_path, target_folder, prefix)
             else:
-                print(f"[!] Nieznana kategoria zwrócona z AI: {kategoria}")
+                print(f"[!] Nieznana kategoria z AI: {kategoria}")
                 
         except json.JSONDecodeError as json_err:
-             print(f"[AI Error] Błąd podczas parsowania JSON: {json_err}")
-             print(f"Surowa odpowiedź modelu: {response.text}")
+             print(f"[AI Error] Błąd parsowania JSON: {json_err}")
         except Exception as e:
             print(f"[AI Error] Główny Błąd AI: {e}")
 
-class ManualMonitorsHandler(FileSystemEventHandler):
-    def __init__(self, target_folder, prefix):
+class ManualDropHandler(FileSystemEventHandler):
+    """Obsługuje pliki przeciągane ręcznie do docelowych folderów (Omijamy AI)."""
+    def __init__(self, target_folder, prefix, category_name):
         self.target_folder = target_folder
         self.prefix = prefix
+        self.category_name = category_name
 
     def on_created(self, event):
         if not event.is_directory: self._process_dropped_file(event.src_path)
@@ -241,12 +235,56 @@ class ManualMonitorsHandler(FileSystemEventHandler):
 
     def _process_dropped_file(self, src_path):
         filename = os.path.basename(src_path)
-        if filename.startswith(self.prefix) or not filename.lower().endswith(('.jpg', '.jpeg', '.png')):
+        
+        # Ignorujemy pliki stworzone/przeniesione przez sam skrypt (np. przez AI)
+        if src_path.lower() in PROCESSED_FILES:
             return
+            
+        if not filename.lower().endswith(('.jpg', '.jpeg', '.png')):
+            return
+
+        # Jeśli wrzucasz standardowe urządzenie, które już ma poprawny prefix w nazwie, to zignoruj.
+        if self.prefix and filename.startswith(self.prefix):
+            return
+
         if not wait_for_file_ready(src_path): return
 
-        print(f"\n[RĘCZNE] Wykryto przeciągnięty monitor: {filename}")
-        rename_and_process_standard_file(src_path, self.target_folder, self.prefix)
+        print(f"\n[RĘCZNE WYMUSZENIE] Wykryto nowy plik w: {self.category_name} -> {filename}")
+
+        if self.category_name == "Komputer AIO":
+            # Ręczne wrzucenie AIO wymaga od nas podania nazwy w konsoli
+            nazwa = input(f"Podaj nazwę komputera AIO dla pliku '{filename}' (TAG): ").strip()
+            if not nazwa:
+                print("[!] Nie podano nazwy. Anulowano ręczne przetwarzanie AIO.")
+                return
+
+            ext = os.path.splitext(src_path)[1]
+            safe_name = re.sub(r'[\\/*?:"<>|]', "", nazwa)
+            new_name = f"{safe_name}{ext}"
+            
+            counter = 1
+            while os.path.exists(os.path.join(self.target_folder, new_name)):
+                new_name = f"{safe_name}_{counter}{ext}"
+                counter += 1
+                
+            new_path = os.path.join(self.target_folder, new_name)
+            
+            try:
+                PROCESSED_FILES.add(new_path.lower())
+                shutil.move(src_path, new_path)
+                print(f"[AIO RĘCZNE] Sukces! Zapisano plik -> {new_name}")
+                
+                set_clipboard(new_path)
+                print(f"[AIO RĘCZNE] Ścieżka skopiowana! Wklej ją i zatwierdź ENTER (tylko Ścieżka -> TAG).")
+                # Tutaj mamy tylko tag, więc używamy standardowego schowka, bo nie odczytaliśmy Modelu/ID
+                threading.Thread(target=wait_for_enter_and_copy_tag, args=(safe_name,), daemon=True).start()
+            except Exception as e:
+                print(f"[AIO RĘCZNE Błąd] {e}")
+                
+        else:
+            # Ręczne wrzucenie Kasy, UPSa, Telefony czy Monitora - leci standardem
+            rename_and_process_standard_file(src_path, self.target_folder, self.prefix)
+
 
 # =====================================================================
 # START APLIKACJI
@@ -274,28 +312,30 @@ def start_monitoring(location_name):
 
     observer = Observer()
     
-    # 1. Nasłuch dla Pobranych (AI)
+    # 1. Nasłuch dla folderu Pobrane (AI)
     ai_handler = DownloadsAIHandler(selected_config)
     observer.schedule(ai_handler, DOWNLOADS_FOLDER, recursive=False)
     
-    # 2. Nasłuch dla folderu P24 (Ręczne)
-    p24_folder, p24_prefix = MONITORS_CONFIG["P24"]
-    os.makedirs(p24_folder, exist_ok=True)
-    p24_handler = ManualMonitorsHandler(p24_folder, p24_prefix)
-    observer.schedule(p24_handler, p24_folder, recursive=False)
-    
-    # 3. Nasłuch dla folderu P27 (Ręczne)
-    p27_folder, p27_prefix = MONITORS_CONFIG["P27"]
-    os.makedirs(p27_folder, exist_ok=True)
-    p27_handler = ManualMonitorsHandler(p27_folder, p27_prefix)
-    observer.schedule(p27_handler, p27_folder, recursive=False)
+    # 2. Nasłuch globalny na foldery z wybranej lokalizacji
+    for kategoria, (folder_path, prefix) in selected_config.items():
+        os.makedirs(folder_path, exist_ok=True)
+        handler = ManualDropHandler(folder_path, prefix, kategoria)
+        observer.schedule(handler, folder_path, recursive=False)
+
+    # 3. Nasłuch na foldery globalne monitorów (P24 i P27)
+    for kategoria, (folder_path, prefix) in MONITORS_CONFIG.items():
+        os.makedirs(folder_path, exist_ok=True)
+        # Traktujemy je po prostu jako kolejne foldery ręczne
+        handler = ManualDropHandler(folder_path, prefix, f"Monitor {kategoria}")
+        observer.schedule(handler, folder_path, recursive=False)
     
     observer.start()
     
     print("\n--- Nasłuchiwanie uruchomione ---")
     print("Monitorowane:")
-    print(f" - Folder Pobrane: {DOWNLOADS_FOLDER} (AI + OCR AIO)")
-    print(f" - Foldery ręczne dla monitorów: P24, P27")
+    print(f" [AI] Folder Pobrane: {DOWNLOADS_FOLDER}")
+    print(f" [Ręczne] Foldery dla lokalizacji: {location_name}")
+    print(f" [Ręczne] Foldery Monitorów: P24, P27")
     print("Zminimalizuj to okno. Wciśnij Ctrl+C, aby zamknąć.\n")
     
     try:
