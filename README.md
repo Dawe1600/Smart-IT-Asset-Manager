@@ -1,71 +1,86 @@
-# Auto Ewidencja
+# Auto Ewidencja IT
 
-Prosty, ale potężny skrypt do automatyzacji procesu ewidencjonowania plików (np. zdjęć, dokumentów) w systemach, które wymagają ręcznego dodawania załączników i wpisywania ich identyfikatorów.
+Proste narzędzie do automatyzacji procesu ewidencji sprzętu IT, wykorzystujące AI do rozpoznawania urządzeń oraz usprawniające pracę poprzez automatyczne kopiowanie danych do schowka.
 
-## Problem
+## Kluczowe Funkcje
 
-Podczas ewidencjonowania dużej liczby pozycji (np. sprzętu komputerowego, dokumentów) często wykonujemy powtarzalne czynności:
-1.  Zapisujemy plik (np. zrzut ekranu, zdjęcie) w odpowiednim folderze.
-2.  Ręcznie zmieniamy jego nazwę na zgodną z systemem (np. `SPRZET-0001.jpg`).
-3.  W formularzu klikamy "Dodaj załącznik" i wybieramy świeżo zapisany plik.
-4.  Ręcznie przepisujemy lub kopiujemy nową nazwę pliku do pola "Identyfikator" w formularzu.
+Aplikacja działa w dwóch głównych trybach, aby zapewnić elastyczność i przyspieszyć pracę.
 
-Ten proces jest monotonny i podatny na błędy.
+### 1. Tryb Automatyczny (AI)
 
-## Rozwiązanie
+Ten tryb jest sercem aplikacji i został zaprojektowany do minimalizowania interwencji użytkownika.
 
-`Auto Ewidencja` monitoruje wskazane foldery. Gdy pojawi się w nich nowy plik, skrypt automatycznie:
-1.  **Zmienia nazwę pliku**, nadając mu kolejny numer w sekwencji (np. `SPRZET-0001`, `SPRZET-0002` itd.).
-2.  **Kopiuje pełną ścieżkę** do nowego pliku do schowka.
-3.  Czeka, aż wkleisz ścieżkę w oknie wyboru pliku i naciśniesz **ENTER**.
-4.  Po wciśnięciu klawisza ENTER, **kopiuje do schowka samą nazwę pliku** (bez rozszerzenia), gotową do wklejenia w pole formularza.
+- **Monitorowanie Folderu Pobrane**: Skrypt stale obserwuje folder `Pobrane` (skonfigurowany w `path.py`).
+- **Wykrywanie Plików AI**: Reaguje na nowe pliki graficzne (`.jpg`, `.png`, `.jpeg`), których nazwa zaczyna się od `multimedia`. Jest to typowy format zapisu zrzutów ekranu lub zdjęć z telefonu w systemie Windows.
+- **Analiza Obrazu z Gemini AI**: Wykryty plik jest wysyłany do analizy przez model AI **Google Gemini**. AI ma za zadanie:
+    - Zidentyfikować kategorię sprzętu na zdjęciu (np. Kasa Fiskalna, Komputer AIO, UPS, Skaner kodów, Monitor).
+    - W przypadku wykrycia **Komputera AIO**, odczytać ze zdjęcia również jego **nazwę**, **model** i **ID produktu**.
+- **Automatyczna Organizacja**:
+    - **Standardowe urządzenia**: Plik zostaje automatycznie przeniesiony do odpowiedniego folderu (zgodnie z konfiguracją dla danej lokalizacji), a jego nazwa zostaje zmieniona według schematu `PREFIX-NNNN.jpg` (np. `KASA-0015.jpg`).
+    - **Komputery AIO**: Plik jest przenoszony do folderu AIO, a jego nazwa jest ustawiana na odczytaną przez AI nazwę komputera.
+    - **Monitory**: Jeśli AI rozpozna monitor, plik jest ignorowany i pozostawiany w folderze Pobrane, co pozwala na ręczne przeniesienie go do dedykowanego folderu `P24` lub `P27`.
+- **Asystent Schowka**: Po przetworzeniu pliku, skrypt automatycznie inicjuje sekwencję kopiowania kluczowych danych do schowka, aby maksymalnie uprościć wprowadzanie ich do systemu ewidencji. Wystarczy wcisnąć `ENTER`, aby kolejne dane były ładowane do schowka:
+    - **Dla urządzeń standardowych**:
+        1.  Ścieżka do pliku.
+        2.  Tag sprzętu (np. `KASA-0015`).
+    - **Dla Komputerów AIO (tryb AI)**:
+        1.  Ścieżka do pliku.
+        2.  Nazwa komputera (tag).
+        3.  Model.
+        4.  ID Produktu.
 
-Dzięki temu cała operacja sprowadza się do kilku prostych kroków: "Zapisz plik -> Wklej -> Enter -> Wklej".
+### 2. Tryb Ręczny (Drag-and-Drop)
 
-## Instalacja i Konfiguracja
+Ten tryb służy do ewidencji urządzeń z pominięciem analizy AI lub do obsługi wyjątków.
 
-### 1. Wymagania wstępne
-- Zainstalowany [Python](https://www.python.org/downloads/) (upewnij się, że podczas instalacji zaznaczyłeś opcję "Add Python to PATH").
+- **Jak to działa?**: Użytkownik przeciąga plik graficzny bezpośrednio do jednego ze skonfigurowanych folderów docelowych (np. do `W:\LOKALIZACJA 1\IT\EWIDENCJA\KASY`).
+- **Automatyczne Przemianowanie**: Skrypt natychmiast zmienia nazwę pliku na `PREFIX-NNNN.jpg` (zgodnie z konfiguracją folderu) i inicjuje **Asystenta Schowka** (kopiowanie ścieżki i tagu).
+- **Obsługa AIO i Monitorów**: Przeciągnięcie pliku do folderu `Komputery_AIO` poprosi użytkownika o ręczne wpisanie nazwy komputera w konsoli. Przeciągnięcie do folderów `P24` lub `P27` automatycznie nada im prefix `P24-` lub `P27-`.
 
-### 2. Pobranie projektu
-Możesz pobrać pliki ręcznie lub użyć Gita:
-```bash
-git clone https://github.com/twoj-uzytkownik/auto_ewidencja.git
-cd auto_ewidencja
-```
+## Instalacja
 
-### 3. Instalacja zależności
-Projekt korzysta z zewnętrznych bibliotek. Otwórz wiersz poleceń (CMD) w folderze projektu i wpisz:
-```bash
-pip install -r requirements.txt
-```
+1.  **Sklonuj Repozytorium**:
+    ```bash
+    git clone https://github.com/twoja-nazwa-uzytkownika/auto_ewidencja.git
+    cd auto_ewidencja
+    ```
 
-### 4. Konfiguracja folderów
-To najważniejszy krok. Musisz powiedzieć skryptowi, które foldery ma monitorować.
-1.  W głównym folderze projektu znajdź plik `path.py.template` i zrób jego kopię o nazwie `path.py`.
-2.  Otwórz plik `path.py` w edytorze tekstu.
-3.  Wypełnij słownik `FOLDERS_CONFIG` według wzoru:
+2.  **Utwórz i Aktywuj Środowisko Wirtualne**:
+    ```bash
+    # Utwórz środowisko
+    python -m venv .venv
 
-```python
-# path.py
-# Klucz to pełna ścieżka do folderu, a wartość to prefiks dla plików.
+    # Aktywuj środowisko
+    .\.venv\Scripts\activate
+    ```
 
+3.  **Zainstaluj Zależności**:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-FOLDERS_CONFIG = {
-    # Przykład 1:
-    'C:\Users\TwojaNazwa\Desktop\Faktury': 'FAKTURA-',
-    
-    # Przykład 2:
-    'D:\Zdjecia_sprzetu\Komputery': 'S-KAS-',
-    
-    # Tutaj dodaj własne wpisy...
-}
-```
+## Konfiguracja
 
-## Użycie
+Przed pierwszym uruchomieniem należy skonfigurować aplikację.
 
-Aby uruchomić monitorowanie, wystarczy kliknąć dwukrotnie plik `ewidencja.bat`.
+1.  **Utwórz plik `path.py`**:
+    - Znajdź plik `path.py.template`.
+    - Skopiuj go i zmień nazwę kopii na `path.py`.
 
-Pojawi się czarne okno konsoli z informacją o statusie monitorowania. **Nie zamykaj tego okna!** Możesz je zminimalizować. Skrypt będzie działał w tle i czekał na nowe pliki w skonfigurowanych folderach.
+2.  **Uzupełnij `path.py`**:
+    - **`API`**: Wklej swój klucz API od Google Gemini. Możesz go uzyskać na stronie [Google AI Studio](https://aistudio.google.com/app/apikey).
+    - **`DOWNLOADS_FOLDER`**: Wprowadź pełną ścieżkę do Twojego folderu `Pobrane`.
+    - **`LOCATIONS_CONFIG`**: Sprawdź i ewentualnie popraw ścieżki sieciowe dla każdej lokalizacji i kategorii sprzętu.
+    - **`MONITORS_CONFIG`**: Sprawdź ścieżki do folderów z monitorami.
 
-Aby zakończyć działanie skryptu, przejdź do okna konsoli i naciśnij `Ctrl+C`.
+    > **Ważne**: Pamiętaj o poprawnym formacie ścieżek w Pythonie (używaj `\\` lub `/`).
+
+## Uruchomienie
+
+Aby uruchomić aplikację, po prostu kliknij dwukrotnie plik `ewidencja.bat`.
+
+- Pojawi się konsola z menu wyboru lokalizacji.
+- Wybierz numer odpowiadający Twojej lokalizacji i wciśnij `ENTER`.
+- Skrypt rozpocznie nasłuchiwanie w tle. Możesz zminimalizować to okno.
+
+Aby zatrzymać program, wróć do okna konsoli i wciśnij `Ctrl+C`.

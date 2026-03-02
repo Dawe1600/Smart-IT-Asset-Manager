@@ -1,2 +1,4 @@
-keyboard
+google-genai
+Pillow
 watchdog
+keyboard

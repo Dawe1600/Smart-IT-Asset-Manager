@@ -1,19 +1,50 @@
-# C:\Programowanie\auto_ewidencja\path.py
+# Plik konfiguracyjny dla aplikacji Auto Ewidencja
+# Skopiuj ten plik, zmień jego nazwę na "path.py" i uzupełnij poniższe zmienne.
 
-# Słownik konfiguracyjny.
-# Klucz (key) to PEŁNA ścieżka do folderu, który ma być monitorowany.
-# Wartość (value) to "przedrostek" (prefix) dla plików w tym folderze.
-# WAŻNE: W ścieżkach w systemie Windows używaj podwójnych ukośników '' zamiast pojedynczych ''.
+# WAŻNE: W ścieżkach w systemie Windows używaj podwójnych ukośników "\\" lub pojedynczych ukośników "/".
+# Np. "C:\\Users\\TwojaNazwa\\Desktop" lub "C:/Users/TwojaNazwa/Desktop"
 
-# PRZYKŁAD:
-# FOLDERS_CONFIG = {
-#     'C:\Users\John\Desktop\Nowe_faktury': 'FAKTURA-',
-#     'D:\Projekty\Graficzne\logo': 'LOGO-'
-# }
+# 1. Klucz API do modelu językowego Google Gemini
+#    Możesz go wygenerować tutaj: https://aistudio.google.com/app/apikey
+API = "TUTAJ_WKLEJ_SWOJ_KLUCZ_API"
 
-FOLDERS_CONFIG = {
-    # Tutaj dodaj swoje wpisy. Usuń ten komentarz i odkomentuj przykłady poniżej lub dodaj własne.
-    # Przykład:
-    # 'C:\Path\To\Your\First\Folder': 'PREFIX1-',
-    # 'C:\Path\To\Your\Second\Folder': 'PREFIX2-',
+# 2. Ścieżka do folderu "Pobrane" (Downloads)
+#    Skrypt będzie monitorował ten folder w poszukiwaniu plików "multimedia*.jpg/png" do analizy przez AI.
+DOWNLOADS_FOLDER = "C:/Users/TwojaNazwa/Downloads"
+
+# 3. Konfiguracja folderów dla poszczególnych lokalizacji
+#    Struktura:
+#    "NAZWA_LOKALIZACJI": {
+#        "Kategoria Sprzętu": ("Pełna\\Ścieżka\\Do\\Folderu", "PREFIX_DO_NAZWY-"),
+#        ...
+#    }
+#    - "Komputer AIO" jest kategorią specjalną i nie wymaga prefixu (można zostawić None lub "").
+LOCATIONS_CONFIG = {
+    "LOKALIZACJA 1": {
+        "Kasa Fiskalna": ("W:\\LOKALIZACJA 1\\IT\\EWIDENCJA\\KASY", "KASA-"),
+        "Telefon Stacjonarny": ("W:\\LOKALIZACJA 1\\IT\\EWIDENCJA\\TELEFONY", "TELEFON-"),
+        "UPS": ("W:\\LOKALIZACJA 1\\IT\\EWIDENCJA\\UPS", "UPS-"),
+        "Skaner kodów": ("W:\\LOKALIZACJA 1\\IT\\EWIDENCJA\\SKANERY", "SKANER-"),
+        "Komputer AIO": ("W:\\LOKALIZACJA 1\\IT\\EWIDENCJA\\KOMPUTERY_AIO", None), 
+    },
+    "LOKALIZACJA 2": {
+        "Kasa Fiskalna": ("W:\\LOKALIZACJA 2\\IT\\EWIDENCJA\\KASY", "KASA-"),
+        "Telefon Stacjonarny": ("W:\\KALOKALIZACJA 2RGOWA\\IT\\EWIDENCJA\\TELEFONY", "TELEFON-"),
+        "UPS": ("W:\\LOKALIZACJA 2\\IT\\EWIDENCJA\\UPS", "UPS-"),
+        "Skaner kodów": ("W:\\LOKALIZACJA 2\\IT\\EWIDENCJA\\SKANERY", "SKANER-"),
+        "Komputer AIO": ("W:\\LOKALIZACJA 2\\IT\\EWIDENCJA\\KOMPUTERY_AIO", None),
+    },
+    "LOKALIZACJA 3": {
+        # Uzupełnij ścieżki dla lokalizacji
+    },
+    "LOKALIZACJA 4": {
+        # Uzupełnij ścieżki dla lokalizacji
+    }
+}
+
+# 4. Konfiguracja globalnych folderów dla monitorów
+#    Te foldery są monitorowane niezależnie od wybranej lokalizacji.
+MONITORS_CONFIG = {
+    "P24": ("W:\\MONITORY\\P24", "P24-"),
+    "P27": ("W:\\MONITORY\\P27", "P27-")
 }
