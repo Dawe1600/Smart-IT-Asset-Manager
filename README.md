@@ -33,7 +33,7 @@ Ten tryb jest sercem aplikacji i został zaprojektowany do minimalizowania inter
 
 Ten tryb służy do ewidencji urządzeń z pominięciem analizy AI lub do obsługi wyjątków.
 
-- **Jak to działa?**: Użytkownik przeciąga plik graficzny bezpośrednio do jednego ze skonfigurowanych folderów docelowych (np. do `W:\SIEDLEC\IT\EWIDENCJA\KASY`).
+- **Jak to działa?**: Użytkownik przeciąga plik graficzny bezpośrednio do jednego ze skonfigurowanych folderów docelowych (np. do `W:\LOKALIZACJA 1\IT\EWIDENCJA\KASY`).
 - **Automatyczne Przemianowanie**: Skrypt natychmiast zmienia nazwę pliku na `PREFIX-NNNN.jpg` (zgodnie z konfiguracją folderu) i inicjuje **Asystenta Schowka** (kopiowanie ścieżki i tagu).
 - **Obsługa AIO i Monitorów**: Przeciągnięcie pliku do folderu `Komputery_AIO` poprosi użytkownika o ręczne wpisanie nazwy komputera w konsoli. Przeciągnięcie do folderów `P24` lub `P27` automatycznie nada im prefix `P24-` lub `P27-`.
 
