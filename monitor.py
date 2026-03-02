@@ -203,9 +203,28 @@ class DownloadsAIHandler(FileSystemEventHandler):
 
             print(f"[AI] Rozpoznana Kategoria: {kategoria}")
 
+            # ================= NOWA LOGIKA DLA MONITORA =================
             if kategoria == "Monitor":
-                print(f"[AI] Wykryto Monitor! Zostawiam plik '{filename}' w folderze Pobrane (przenieś ręcznie do P24/P27).")
+                print(f"\n[?] Wykryto Monitor w pliku '{filename}'. Do którego folderu go zapisać?")
+                print("1. P24")
+                print("2. P27")
+                
+                while True:
+                    wybor_mon = input("Wpisz numer (1 lub 2) i zatwierdź ENTER: ").strip()
+                    if wybor_mon == "1":
+                        target_folder, prefix = MONITORS_CONFIG["P24"]
+                        break
+                    elif wybor_mon == "2":
+                        target_folder, prefix = MONITORS_CONFIG["P27"]
+                        break
+                    else:
+                        print("[!] Niepoprawny wybór. Wpisz 1 lub 2.")
+                
+                # Uruchamiamy standardową ścieżkę (przeniesienie + schowek)
+                rename_and_process_standard_file(src_path, target_folder, prefix)
                 return
+            # ==============================================================
+            
             elif kategoria == "Komputer AIO":
                 target_folder = self.location_config["Komputer AIO"][0]
                 process_aio_file(src_path, target_folder, dane)
