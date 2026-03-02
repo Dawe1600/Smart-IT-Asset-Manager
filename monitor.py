@@ -125,9 +125,11 @@ def process_aio_file(src_path, target_folder, data_json):
     if not os.path.exists(target_folder):
         os.makedirs(target_folder, exist_ok=True)
 
-    nazwa = data_json.get("nazwa_komputera", "Nieznany_AIO").strip()
-    model = data_json.get("model", "").strip()
-    id_prod = data_json.get("id_produktu", "").strip()
+    # Używamy operatora 'or', który wyłapie 'None' i zamieni go na tekst, 
+    # a str() upewni się, że na pewno mamy do czynienia z tekstem.
+    nazwa = str(data_json.get("nazwa_komputera") or "Nieznany_AIO").strip()
+    model = str(data_json.get("model") or "").strip()
+    id_prod = str(data_json.get("id_produktu") or "").strip()
 
     safe_name = re.sub(r'[\\/*?:"<>|]', "", nazwa)
     ext = os.path.splitext(src_path)[1]
@@ -191,7 +193,7 @@ class DownloadsAIHandler(FileSystemEventHandler):
 
         try:
             img = Image.open(src_path)
-            response = client.models.generate_content(model='gemini-2.5-flash', contents=[prompt, img])
+            response = client.models.generate_content(model='gemini-2.5-flash-lite', contents=[prompt, img])
             
             match = re.search(r'\{.*\}', response.text, re.DOTALL)
             if not match:
