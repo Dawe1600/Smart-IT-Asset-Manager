@@ -2,69 +2,118 @@ import os
 import time
 import re
 import subprocess
-import threading  # NOWOŚĆ: Pozwala na wykonywanie zadań "w tle"
-import keyboard   # NOWOŚĆ: Pozwala skryptowi reagować na klawisze
+import threading
+import keyboard
+import shutil
+from PIL import Image
 
-from path import FOLDERS_CONFIG
+# Import nowej biblioteki Google
+from google import genai
+
+# Import konfiguracji z pliku path.py
+from path import LOCATIONS_CONFIG, DOWNLOADS_FOLDER, API
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-class MultiFolderRenameHandler(FileSystemEventHandler):
-    """
-    Klasa obsługująca zmianę nazw dla konkretnego folderu i przedrostka.
-    """
-    def __init__(self, folder_path, prefix):
-        self.folder_path = folder_path
-        self.prefix = prefix
-        
-        self.pattern_str = r"^" + re.escape(self.prefix) + r"(\d{4})\."
-        self.pattern = re.compile(self.pattern_str)
-        
-        initial_highest = self._get_highest_number()
-        print(f"[{self.prefix}] Monitorowanie aktywne. Aktualnie najwyższy numer to: {initial_highest:04d}")
+# =====================================================================
+# INICJALIZACJA KLIENTA AI Z NOWEJ BIBLIOTEKI
+# =====================================================================
+client = genai.Client(api_key=API)
 
-    def _get_highest_number(self):
-        highest = 0
-        if not os.path.exists(self.folder_path):
-            return 0
-            
-        for filename in os.listdir(self.folder_path):
-            match = self.pattern.search(filename)
-            if match:
-                num = int(match.group(1))
-                if num > highest:
-                    highest = num
-        return highest
+
+class DownloadsMonitorHandler(FileSystemEventHandler):
+    """
+    Klasa monitorująca folder Pobrane, analizująca zdjęcia przez AI
+    i przenosząca je do odpowiednich folderów ewidencyjnych.
+    """
+    def __init__(self, location_config):
+        self.location_config = location_config
+        print(f"[*] Rozpoczęto monitorowanie folderu: {DOWNLOADS_FOLDER}")
+        print("[*] Czekam na pobranie plików rozpoczynających się od 'multimedia'...\n")
 
     def on_created(self, event):
+        # Wyłapuje pliki, które są od razu tworzone z docelową nazwą (np. zrzuty ekranu, kopiuj-wklej)
         if event.is_directory:
             return
-        src_path = event.src_path
-        self._process_new_file(src_path)
+        self._process_new_file(event.src_path)
+
+    def on_moved(self, event):
+        # Wyłapuje pliki po zakończeniu pobierania przez przeglądarkę (zmiana z .crdownload na .jpg)
+        if event.is_directory:
+            return
+        self._process_new_file(event.dest_path)
 
     def _process_new_file(self, src_path):
-        filename = os.path.basename(src_path)
+        filename = os.path.basename(src_path).lower()
         
-        if self.pattern.match(filename):
+        # Sprawdzamy, czy plik zaczyna się od "multimedia" i jest obrazem
+        if not filename.startswith("multimedia") or not filename.endswith(('.jpg', '.jpeg', '.png')):
             return
 
+        print(f"\n[AI] Wykryto nowy plik: {filename}. Czekam na upewnienie się, że plik jest gotowy...")
         if not self._wait_for_file_ready(src_path):
-            print(f"[{self.prefix}] Błąd: Plik {filename} jest zablokowany.")
+            print(f"[!] Błąd: Plik {filename} jest zablokowany lub pobieranie nie powiodło się.")
             return
 
-        current_highest = self._get_highest_number()
+        print(f"[AI] Wysyłam {filename} do analizy (może to potrwać kilka sekund)...")
+        kategoria = self._classify_image_with_ai(src_path)
+        
+        if not kategoria:
+            print("[!] AI nie rozpoznało urządzenia z listy.")
+            return
+
+        print(f"[AI] Wynik analizy: {kategoria}")
+
+        # Sprawdzamy czy AI zwróciło kategorię która istnieje w naszej konfiguracji
+        if kategoria not in self.location_config:
+            print(f"[!] Błąd: Kategoria '{kategoria}' nie istnieje w słowniku path.py! Upewnij się, że nazwy się pokrywają.")
+            return
+
+        target_folder, prefix = self.location_config[kategoria]
+        
+        # Upewniamy się, że folder docelowy istnieje
+        if not os.path.exists(target_folder):
+            os.makedirs(target_folder, exist_ok=True)
+
+        self._move_and_rename_file(src_path, target_folder, prefix)
+
+    def _classify_image_with_ai(self, image_path):
+        try:
+            img = Image.open(image_path)
+            prompt = (
+                "Jesteś asystentem do inwentaryzacji sprzętu IT. "
+                "Na tym zdjęciu znajduje się urządzenie. "
+                "Wybierz JEDNĄ, najbardziej pasującą kategorię z poniższej listy i zwróć TYLKO jej dokładną nazwę (bez żadnych innych słów i znaków interpunkcyjnych): "
+                "Kasa Fiskalna, Telefon Stacjonarny, UPS, Skaner kodów, Monitor."
+            )
+            
+            # Użycie nowego API Google
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[prompt, img]
+            )
+            
+            wynik = response.text.strip()
+            # Czasem AI dopisze kropkę na końcu, czyścimy to
+            wynik = wynik.replace(".", "") 
+            return wynik
+        except Exception as e:
+            print(f"[AI Error] Błąd podczas klasyfikacji obrazu: {e}")
+            return None
+
+    def _move_and_rename_file(self, src_path, target_folder, prefix):
+        current_highest = self._get_highest_number(target_folder, prefix)
         next_number = current_highest + 1
         
         ext = os.path.splitext(src_path)[1]
-        
-        new_name = f"{self.prefix}{next_number:04d}{ext}"
-        new_path = os.path.join(self.folder_path, new_name)
+        new_name = f"{prefix}{next_number:04d}{ext}"
+        new_path = os.path.join(target_folder, new_name)
         
         try:
-            # Zmiana nazwy pliku
-            os.rename(src_path, new_path)
-            print(f"[{self.prefix}] Sukces: {filename} -> {new_name}")
+            # Przeniesienie i zmiana nazwy z Downloads do docelowego miejsca
+            shutil.move(src_path, new_path)
+            print(f"[{prefix}] Sukces! Przeniesiono plik -> {new_name}")
             
             try:
                 # 1. Kopiowanie pełnej ŚCIEŻKI do schowka
@@ -72,44 +121,55 @@ class MultiFolderRenameHandler(FileSystemEventHandler):
                     ["powershell", "-command", f"Set-Clipboard -Value '{new_path}'"],
                     creationflags=subprocess.CREATE_NO_WINDOW
                 )
-                print(f"[{self.prefix}] Ścieżka skopiowana! Wklej ją w oknie przeglądarki i wciśnij ENTER.")
+                print(f"[{prefix}] Ścieżka skopiowana! Wklej ją w oknie przeglądarki i wciśnij ENTER.")
                 
                 # Wyciągamy Tag Sprzętu (czyli nazwę bez .jpg), np. "S-KAS-0005"
                 tag_sprzetu = os.path.splitext(new_name)[0]
                 
                 # 2. Uruchamiamy "nasłuchiwanie" klawisza ENTER w tle
-                # Aby nie blokować skryptu, robimy to w osobnym wątku
-                threading.Thread(target=self._wait_for_enter_and_copy_tag, args=(tag_sprzetu,)).start()
+                threading.Thread(target=self._wait_for_enter_and_copy_tag, args=(tag_sprzetu,), daemon=True).start()
                 
             except Exception as clip_err:
-                print(f"[{self.prefix}] Błąd podczas operacji na schowku: {clip_err}")
+                print(f"[{prefix}] Błąd podczas operacji na schowku: {clip_err}")
                 
         except Exception as e:
-            print(f"[{self.prefix}] Błąd zmiany nazwy pliku {filename}: {e}")
+            print(f"[{prefix}] Błąd przy przenoszeniu pliku: {e}")
+
+    def _get_highest_number(self, folder_path, prefix):
+        highest = 0
+        if not os.path.exists(folder_path):
+            return 0
+            
+        pattern_str = r"^" + re.escape(prefix) + r"(\d{4})\."
+        pattern = re.compile(pattern_str)
+            
+        for filename in os.listdir(folder_path):
+            match = pattern.search(filename)
+            if match:
+                num = int(match.group(1))
+                if num > highest:
+                    highest = num
+        return highest
 
     def _wait_for_enter_and_copy_tag(self, tag):
-        """
-        Czeka na wciśnięcie klawisza ENTER przez użytkownika,
-        a następnie ładuje do schowka Tag Sprzętu.
-        """
-        # Skrypt w tym miejscu czeka, aż naciśniesz Enter
+        # Skrypt czeka aż naciśniesz Enter w dowolnym programie
         keyboard.wait('enter') 
-        
-        # Dajemy systemowi ułamek sekundy na zamknięcie okienka wyboru pliku
-        time.sleep(0.5) 
+        time.sleep(0.5) # Zapas dla systemu operacyjnego
         
         try:
-            # Nadpisujemy schowek samym Tagiem
             subprocess.run(
                 ["powershell", "-command", f"Set-Clipboard -Value '{tag}'"],
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
-            print(f" ---> Tag '{tag}' załadowany do schowka! Możesz wkleić go w formularzu.")
+            print(f" ---> Tag '{tag}' załadowany do schowka! Możesz wkleić go w formularzu.\n")
         except Exception as e:
             print(f"Błąd przy kopiowaniu tagu: {e}")
 
-    def _wait_for_file_ready(self, filepath, max_retries=15, delay=1):
+    def _wait_for_file_ready(self, filepath, max_retries=20, delay=1):
+        # Czeka, aż Chrome/przeglądarka skończy zapisywać plik
         for _ in range(max_retries):
+            if not os.path.exists(filepath):
+                 return False
             try:
                 with open(filepath, 'a'):
                     pass
@@ -119,38 +179,60 @@ class MultiFolderRenameHandler(FileSystemEventHandler):
         return False
 
 
-def start_multi_monitoring(folders_config):
-    observer = Observer()
-    active_watches = 0
+def show_menu_and_get_location():
+    print("=======================================")
+    print("   AUTOMATYCZNA EWIDENCJA SPRZĘTU IT")
+    print("=======================================")
+    print("Wybierz miejscowość, w której się znajdujesz:")
+    print("1. SIEDLEC")
+    print("2. KARGOWA")
+    print("3. WIELICHOWO")
+    print("4. PRZEMET")
+    print("=======================================")
     
-    for folder_path, prefix in folders_config.items():
-        if not os.path.exists(folder_path):
-            print(f"OSTRZEŻENIE: Folder nie istnieje i zostanie pominięty: {folder_path}")
-            continue
-            
-        event_handler = MultiFolderRenameHandler(folder_path, prefix)
-        observer.schedule(event_handler, folder_path, recursive=False)
-        active_watches += 1
+    opcje = {
+        "1": "SIEDLEC",
+        "2": "KARGOWA",
+        "3": "WIELICHOWO",
+        "4": "PRZEMET"
+    }
+    
+    while True:
+        wybor = input("Wpisz numer (1-4) i zatwierdź ENTER: ").strip()
+        if wybor in opcje:
+            wybrana_lokalizacja = opcje[wybor]
+            print(f"\n=> Wybrano lokalizację: {wybrana_lokalizacja}")
+            return wybrana_lokalizacja
+        else:
+            print("Niepoprawny wybór. Spróbuj ponownie.")
 
-    if active_watches == 0:
-        print("Błąd: Nie znaleziono żadnego z podanych folderów. Sprawdź ścieżki.")
+def start_downloads_monitoring(location_name):
+    # Pobieramy słownik ścieżek tylko dla wybranej miejscowości
+    selected_config = LOCATIONS_CONFIG.get(location_name)
+    
+    if not selected_config:
+        print("Błąd konfiguracji: Nie znaleziono ustawień dla tej lokalizacji.")
         return
 
+    observer = Observer()
+    event_handler = DownloadsMonitorHandler(selected_config)
+    
+    # Monitorujemy JEDYNIE folder Pobrane
+    observer.schedule(event_handler, DOWNLOADS_FOLDER, recursive=False)
     observer.start()
-    print("\n--- Monitorowanie rozpoczęte pomyślnie! ---")
-    print("Naciśnij Ctrl+C, aby zatrzymać.\n")
+    
+    print("\n--- Nasłuchiwanie uruchomione ---")
+    print("Zminimalizuj to okno. Wciśnij Ctrl+C, aby zamknąć program.\n")
     
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         observer.stop()
-        print("\nZatrzymano monitorowanie.")
+        print("\nZatrzymano program.")
         
     observer.join()
 
-
 if __name__ == "__main__":
-    # SŁOWNIK KONFIGURACY w pliku path.py
-    
-    start_multi_monitoring(FOLDERS_CONFIG)
+    lokalizacja = show_menu_and_get_location()
+    start_downloads_monitoring(lokalizacja)
