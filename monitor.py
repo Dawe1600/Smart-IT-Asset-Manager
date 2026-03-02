@@ -291,20 +291,28 @@ class ManualDropHandler(FileSystemEventHandler):
 # =====================================================================
 
 def show_menu_and_get_location():
+    """Dynamicznie buduje menu na podstawie wpisów w LOCATIONS_CONFIG i pobiera wybór od użytkownika."""
     print("=======================================")
     print("   AUTOMATYCZNA EWIDENCJA SPRZĘTU IT")
     print("=======================================")
-    print("1. SIEDLEC")
-    print("2. KARGOWA")
-    print("3. WIELICHOWO")
-    print("4. PRZEMET")
+    
+    # Dynamiczne tworzenie opcji menu z konfiguracji
+    locations = list(LOCATIONS_CONFIG.keys())
+    for i, location_name in enumerate(locations, 1):
+        print(f"{i}. {location_name}")
+        
     print("=======================================")
     
-    opcje = {"1": "SIEDLEC", "2": "KARGOWA", "3": "WIELICHOWO", "4": "PRZEMET"}
     while True:
-        wybor = input("Wpisz numer (1-4) i zatwierdź ENTER: ").strip()
-        if wybor in opcje:
-            return opcje[wybor]
+        try:
+            choice = input(f"Wpisz numer (1-{len(locations)}) i zatwierdź ENTER: ").strip()
+            choice_index = int(choice) - 1
+            if 0 <= choice_index < len(locations):
+                return locations[choice_index]
+            else:
+                print(f"[!] Błędny numer. Podaj liczbę od 1 do {len(locations)}.")
+        except ValueError:
+            print("[!] To nie jest poprawny numer. Spróbuj ponownie.")
 
 def start_monitoring(location_name):
     selected_config = LOCATIONS_CONFIG.get(location_name)

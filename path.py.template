@@ -20,25 +20,25 @@ DOWNLOADS_FOLDER = "C:/Users/TwojaNazwa/Downloads"
 #    }
 #    - "Komputer AIO" jest kategorią specjalną i nie wymaga prefixu (można zostawić None lub "").
 LOCATIONS_CONFIG = {
-    "SIEDLEC": {
-        "Kasa Fiskalna": ("W:\\SIEDLEC\\IT\\EWIDENCJA\\KASY", "KASA-"),
-        "Telefon Stacjonarny": ("W:\\SIEDLEC\\IT\\EWIDENCJA\\TELEFONY", "TELEFON-"),
-        "UPS": ("W:\\SIEDLEC\\IT\\EWIDENCJA\\UPS", "UPS-"),
-        "Skaner kodów": ("W:\\SIEDLEC\\IT\\EWIDENCJA\\SKANERY", "SKANER-"),
-        "Komputer AIO": ("W:\\SIEDLEC\\IT\\EWIDENCJA\\KOMPUTERY_AIO", None), 
+    "LOKALIZACJA 1": {
+        "Kasa Fiskalna": ("W:\\LOKALIZACJA 1\\IT\\EWIDENCJA\\KASY", "KASA-"),
+        "Telefon Stacjonarny": ("W:\\LOKALIZACJA 1\\IT\\EWIDENCJA\\TELEFONY", "TELEFON-"),
+        "UPS": ("W:\\LOKALIZACJA 1\\IT\\EWIDENCJA\\UPS", "UPS-"),
+        "Skaner kodów": ("W:\\LOKALIZACJA 1\\IT\\EWIDENCJA\\SKANERY", "SKANER-"),
+        "Komputer AIO": ("W:\\LOKALIZACJA 1\\IT\\EWIDENCJA\\KOMPUTERY_AIO", None), 
     },
-    "KARGOWA": {
-        "Kasa Fiskalna": ("W:\\KARGOWA\\IT\\EWIDENCJA\\KASY", "KASA-"),
-        "Telefon Stacjonarny": ("W:\\KARGOWA\\IT\\EWIDENCJA\\TELEFONY", "TELEFON-"),
-        "UPS": ("W:\\KARGOWA\\IT\\EWIDENCJA\\UPS", "UPS-"),
-        "Skaner kodów": ("W:\\KARGOWA\\IT\\EWIDENCJA\\SKANERY", "SKANER-"),
-        "Komputer AIO": ("W:\\KARGOWA\\IT\\EWIDENCJA\\KOMPUTERY_AIO", None),
+    "LOKALIZACJA 2": {
+        "Kasa Fiskalna": ("W:\\LOKALIZACJA 2\\IT\\EWIDENCJA\\KASY", "KASA-"),
+        "Telefon Stacjonarny": ("W:\\KALOKALIZACJA 2RGOWA\\IT\\EWIDENCJA\\TELEFONY", "TELEFON-"),
+        "UPS": ("W:\\LOKALIZACJA 2\\IT\\EWIDENCJA\\UPS", "UPS-"),
+        "Skaner kodów": ("W:\\LOKALIZACJA 2\\IT\\EWIDENCJA\\SKANERY", "SKANER-"),
+        "Komputer AIO": ("W:\\LOKALIZACJA 2\\IT\\EWIDENCJA\\KOMPUTERY_AIO", None),
     },
-    "WIELICHOWO": {
-        # Uzupełnij ścieżki dla Wielichowa
+    "LOKALIZACJA 3": {
+        # Uzupełnij ścieżki dla lokalizacji
     },
-    "PRZEMET": {
-        # Uzupełnij ścieżki dla Przemętu
+    "LOKALIZACJA 4": {
+        # Uzupełnij ścieżki dla lokalizacji
     }
 }
 
