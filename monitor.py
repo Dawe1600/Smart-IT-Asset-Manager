@@ -243,13 +243,13 @@ class DownloadsAIHandler(FileSystemEventHandler):
                  
             except Exception as e:
                 error_msg = str(e).upper()
-                # Sprawdzamy czy to wina serwerów
-                if "503" in error_msg or "UNAVAILABLE" in error_msg or "HIGH DEMAND" in error_msg:
+                # Sprawdzamy czy to wina serwerów (503) lub chwilowych limitów (429)
+                if any(err in error_msg for err in ["503", "UNAVAILABLE", "HIGH DEMAND", "429", "TOO MANY REQUESTS", "QUOTA"]):
                     if attempt < max_retries:
-                        print(f"[AI] Serwery Google są przeciążone. Czekam 15 sekund i próbuję ponownie (próba {attempt}/{max_retries})...")
+                        print(f"[AI] Serwery przeciążone lub osiągnięto limit zapytań (429/503). Czekam 15 sekund i próbuję ponownie (próba {attempt}/{max_retries})...")
                         time.sleep(15)
                     else:
-                        print(f"[AI Error] Błąd 503. Ostatecznie nie udało się po {max_retries} próbach.")
+                        print(f"[AI Error] Błąd limitu/przeciążenia. Ostatecznie nie udało się po {max_retries} próbach.")
                 else:
                     print(f"[AI Error] Główny Błąd AI: {e}")
                     break # Wychodzimy z pętli prób przy innych błędach
