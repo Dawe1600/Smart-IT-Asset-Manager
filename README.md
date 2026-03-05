@@ -1,6 +1,6 @@
 # Auto Ewidencja IT
 
-Narzędzie do automatyzacji procesu ewidencji sprzętu IT, wykorzystujące AI i OCR do rozpoznawania urządzeń, generowania etykiet oraz usprawniania pracy poprzez automatyczne kopiowanie danych do schowka.
+Narzędzie do automatyzacji procesu ewidencji sprzętu IT, wykorzystujące AI i OCR do rozpoznawania urządzeń, generowania etykiet na drukarce NIIMBOT B3S, oraz usprawniania pracy poprzez automatyczne kopiowanie danych do schowka.
 
 ## Kluczowe Funkcje
 
@@ -37,7 +37,7 @@ Tryb służący do ewidencji z pominięciem AI lub do obsługi wyjątków.
 
 ### 3. Drukowanie Etykiet (NIIMBOT B3S)
 
-Po zaksięgowaniu każdego urządzenia (zarówno w trybie AI, jak i ręcznym), aplikacja oferuje wydruk samoprzylepnej etykiety.
+Po zaksięgowaniu każdego urządzenia (zarówno w trybie AI, jak i ręcznym), aplikacja oferuje wydruk samoprzylepnej etykiety. Funkcjonalność ta została zaprojektowana i przetestowana wyłącznie z drukarką **NIIMBOT B3S** i może nie działać z innymi modelami.
 
 - **Generowanie QR Code**: Tag urządzenia (np. `KASA-0015`) jest zamieniany na kod QR.
 - **Tworzenie Obrazu Etykiety**: Za pomocą biblioteki `Pillow`, skrypt generuje obraz etykiety zawierający:
