@@ -2,3 +2,5 @@ google-genai
 Pillow
 watchdog
 keyboard
+qrcode
+niimprint
