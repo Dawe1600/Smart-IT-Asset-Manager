@@ -1,6 +1,6 @@
 # Auto Ewidencja IT
 
-Narzędzie do automatyzacji procesu ewidencji sprzętu IT, wykorzystujące AI do rozpoznawania urządzeń, generowania etykiet oraz usprawniania pracy poprzez automatyczne kopiowanie danych do schowka.
+Narzędzie do automatyzacji procesu ewidencji sprzętu IT, wykorzystujące AI i OCR do rozpoznawania urządzeń, generowania etykiet oraz usprawniania pracy poprzez automatyczne kopiowanie danych do schowka.
 
 ## Kluczowe Funkcje
 
@@ -14,8 +14,8 @@ Ten tryb jest sercem aplikacji i został zaprojektowany do minimalizowania inter
 - **Wykrywanie Plików AI**: Reaguje na nowe pliki graficzne (`.jpg`, `.png`, `.jpeg`), których nazwa zaczyna się od `multimedia`.
 - **Analiza Obrazu z Gemini AI**: Wykryty plik jest wysyłany do analizy przez model AI **`gemma-3-27b-it`**. AI ma za zadanie:
     - Zidentyfikować kategorię sprzętu na zdjęciu (np. Kasa Fiskalna, Komputer AIO, Smartfon, Laptop, Monitor).
-    - W przypadku wykrycia **Komputera AIO**, odczytać ze zdjęcia jego **nazwę**, **model** i **ID produktu**.
-    - W przypadku wykrycia **Smartfona**, odczytać jego **model** oraz **numer seryjny (SN)**.
+    - W przypadku wykrycia **Komputera AIO**, odczytać ze zdjęcia jego **nazwę**, **model** i **ID produktu** dzięki zaawansowanemu systemowi OCR (Optyczne Rozpoznawanie Znaków).
+    - W przypadku wykrycia **Smartfona**, odczytać jego **model** oraz **numer seryjny (SN)** dzięki zaawansowanemu systemowi OCR (Optyczne Rozpoznawanie Znaków).
 - **Automatyczna Organizacja**:
     - **Standardowe urządzenia**: Plik zostaje automatycznie przeniesiony do odpowiedniego folderu, a jego nazwa zostaje zmieniona według schematu `PREFIX-NNNN.jpg` (np. `KASA-0015.jpg`).
         - **Wyjątek - Laptopy**: Nazwy plików dla laptopów generowane są bez zer wiodących (np. `LAPTOP12.jpg`).
