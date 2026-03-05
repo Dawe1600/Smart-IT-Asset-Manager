@@ -11,8 +11,10 @@ from PIL import Image
 # Import nowej biblioteki Google
 from google import genai
 
-# Import konfiguracji
+# Import konfiguracji oraz naszej nowej funkcji drukarki
 from path import LOCATIONS_CONFIG, MONITORS_CONFIG, DOWNLOADS_FOLDER, API
+from printer import zapytaj_i_drukuj
+
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -49,7 +51,7 @@ def wait_for_single_enter():
 def set_clipboard(text):
     subprocess.run(["powershell", "-command", f"Set-Clipboard -Value '{text}'"], creationflags=subprocess.CREATE_NO_WINDOW)
 
-def wait_for_enter_and_copy_tag(tag):
+def wait_for_enter_and_copy_tag(tag, kategoria):
     print(f" [Oczekiwanie] Nasłuchuję klawisza ENTER dla tagu: {tag}...")
     wait_for_single_enter()
     try:
@@ -57,8 +59,11 @@ def wait_for_enter_and_copy_tag(tag):
         print(f" ---> SUKCES! Tag '{tag}' załadowany do schowka!\n")
     except Exception as e:
         print(f"[!] Błąd przy kopiowaniu tagu: {e}")
+    
+    # Po wklejeniu tagu pytamy o wydruk, korzystając z pliku printer.py
+    zapytaj_i_drukuj(tag, kategoria)
 
-def aio_clipboard_sequence(filepath, nazwa, model, id_prod):
+def aio_clipboard_sequence(filepath, nazwa, model, id_prod, kategoria):
     print("\n--- ROZPOCZYNAM SEKWENCJĘ WYPEŁNIANIA DLA AIO ---")
     try:
         set_clipboard(filepath)
@@ -74,10 +79,12 @@ def aio_clipboard_sequence(filepath, nazwa, model, id_prod):
         wait_for_single_enter()
 
         set_clipboard(id_prod)
-        print(f"[AIO Krok 4/4] ID Produktu ({id_prod}) skopiowane. Gotowe! Możesz wkleić.\n")
-        print("-------------------------------------------------")
+        print(f"[AIO Krok 4/4] ID Produktu ({id_prod}) skopiowane. Gotowe! Możesz wkleić.")
     except Exception as e:
         print(f"[!] Błąd w trakcie sekwencji schowka AIO: {e}")
+    
+    # Po całej sekwencji pytamy o wydruk, korzystając z pliku printer.py
+    zapytaj_i_drukuj(nazwa, kategoria)
 
 # =====================================================================
 # FUNKCJE PRZENOSZENIA I ZMIANY NAZWY
@@ -97,7 +104,7 @@ def get_highest_number(folder_path, prefix):
                 highest = num
     return highest
 
-def rename_and_process_standard_file(src_path, target_folder, prefix):
+def rename_and_process_standard_file(src_path, target_folder, prefix, kategoria):
     current_highest = get_highest_number(target_folder, prefix)
     next_number = current_highest + 1
     ext = os.path.splitext(src_path)[1]
@@ -112,11 +119,11 @@ def rename_and_process_standard_file(src_path, target_folder, prefix):
         print(f"[{prefix}] Ścieżka skopiowana! Wklej ją w przeglądarce i wciśnij ENTER.")
         
         tag_sprzetu = os.path.splitext(new_name)[0]
-        threading.Thread(target=wait_for_enter_and_copy_tag, args=(tag_sprzetu,), daemon=True).start()
+        threading.Thread(target=wait_for_enter_and_copy_tag, args=(tag_sprzetu, kategoria), daemon=True).start()
     except Exception as e:
         print(f"[{prefix}] Błąd przy obróbce pliku: {e}")
 
-def process_aio_file(src_path, target_folder, data_json):
+def process_aio_file(src_path, target_folder, data_json, kategoria="Komputer AIO"):
     if not os.path.exists(target_folder):
         os.makedirs(target_folder, exist_ok=True)
 
@@ -140,7 +147,7 @@ def process_aio_file(src_path, target_folder, data_json):
         shutil.move(src_path, new_path)
         print(f"[AIO AI] Sukces! Zapisano plik jako -> {new_name}")
         
-        threading.Thread(target=aio_clipboard_sequence, args=(new_path, nazwa, model, id_prod), daemon=True).start()
+        threading.Thread(target=aio_clipboard_sequence, args=(new_path, nazwa, model, id_prod, kategoria), daemon=True).start()
     except Exception as e:
         print(f"[AIO] Błąd przy przenoszeniu pliku AIO: {e}")
 
@@ -189,7 +196,6 @@ class DownloadsAIHandler(FileSystemEventHandler):
             print(f"[!] Błąd przy otwieraniu pliku zdjęcia: {e}")
             return
 
-        # ================= MECHANIZM RETRY (CZEKANIE NA SERWER) =================
         max_retries = 3
         
         for attempt in range(1, max_retries + 1):
@@ -199,7 +205,7 @@ class DownloadsAIHandler(FileSystemEventHandler):
                 match = re.search(r'\{.*\}', response.text, re.DOTALL)
                 if not match:
                     print(f"[!] AI zwróciło nierozpoznawalny format: {response.text}")
-                    return # Wychodzimy z funkcji, brak JSON-a
+                    return
                 
                 dane = json.loads(match.group(0))
                 kategoria = dane.get("kategoria", "Nieznana")
@@ -216,38 +222,39 @@ class DownloadsAIHandler(FileSystemEventHandler):
                         wybor_mon = input("Wpisz numer (1 lub 2 lub 3) i zatwierdź ENTER: ").strip()
                         if wybor_mon == "1":
                             target_folder, prefix = MONITORS_CONFIG["P24"]
+                            kat_do_druku = "Monitor P24"
                             break
                         elif wybor_mon == "2":
                             target_folder, prefix = MONITORS_CONFIG["P27"]
+                            kat_do_druku = "Monitor P27"
                             break
                         elif wybor_mon == "3":
                             target_folder, prefix = LOCATIONS_CONFIG["Telewizor"]
+                            kat_do_druku = "Telewizor"
                             break
                         else:
                             print("[!] Niepoprawny wybór. Wpisz 1 lub 2 lub 3.")
                     
-                    rename_and_process_standard_file(src_path, target_folder, prefix)
-                    return # Zakończono dla monitora
+                    rename_and_process_standard_file(src_path, target_folder, prefix, kat_do_druku)
+                    return 
                 
                 elif kategoria == "Komputer AIO":
                     target_folder = self.location_config["Komputer AIO"][0]
-                    process_aio_file(src_path, target_folder, dane)
+                    process_aio_file(src_path, target_folder, dane, kategoria)
                 elif kategoria in self.location_config:
                     target_folder, prefix = self.location_config[kategoria]
-                    rename_and_process_standard_file(src_path, target_folder, prefix)
+                    rename_and_process_standard_file(src_path, target_folder, prefix, kategoria)
                 else:
                     print(f"[!] Nieznana kategoria z AI: {kategoria}")
                     
-                # SUKCES! Przerywamy pętlę prób (break) i kończymy.
                 break 
 
             except json.JSONDecodeError as json_err:
                  print(f"[AI Error] Błąd parsowania JSON: {json_err}")
-                 break # Wychodzimy z pętli, wina AI nie sieci
+                 break 
                  
             except Exception as e:
                 error_msg = str(e).upper()
-                # Sprawdzamy czy to wina serwerów (503) lub chwilowych limitów (429)
                 if any(err in error_msg for err in ["503", "UNAVAILABLE", "HIGH DEMAND", "429", "TOO MANY REQUESTS", "QUOTA"]):
                     if attempt < max_retries:
                         print(f"[AI] Serwery przeciążone lub osiągnięto limit zapytań (429/503). Czekam 15 sekund i próbuję ponownie (próba {attempt}/{max_retries})...")
@@ -256,8 +263,7 @@ class DownloadsAIHandler(FileSystemEventHandler):
                         print(f"[AI Error] Błąd limitu/przeciążenia. Ostatecznie nie udało się po {max_retries} próbach.")
                 else:
                     print(f"[AI Error] Główny Błąd AI: {e}")
-                    break # Wychodzimy z pętli prób przy innych błędach
-
+                    break
 
 class ManualDropHandler(FileSystemEventHandler):
     def __init__(self, target_folder, prefix, category_name):
@@ -311,12 +317,12 @@ class ManualDropHandler(FileSystemEventHandler):
                 
                 set_clipboard(new_path)
                 print(f"[AIO RĘCZNE] Ścieżka skopiowana! Wklej ją i zatwierdź ENTER (tylko Ścieżka -> TAG).")
-                threading.Thread(target=wait_for_enter_and_copy_tag, args=(safe_name,), daemon=True).start()
+                threading.Thread(target=wait_for_enter_and_copy_tag, args=(safe_name, "Komputer AIO"), daemon=True).start()
             except Exception as e:
                 print(f"[AIO RĘCZNE Błąd] {e}")
                 
         else:
-            rename_and_process_standard_file(src_path, self.target_folder, self.prefix)
+            rename_and_process_standard_file(src_path, self.target_folder, self.prefix, self.category_name)
 
 # =====================================================================
 # START APLIKACJI
