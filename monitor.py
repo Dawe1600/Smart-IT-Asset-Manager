@@ -117,7 +117,8 @@ def get_highest_number(folder_path, prefix):
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
         return 0
-    pattern = re.compile(r"^" + re.escape(prefix) + r"(\d{4})\.")
+    # ZMIANA: używamy (\d+) zamiast (\d{4}), by łapać dowolną długość liczb
+    pattern = re.compile(r"^" + re.escape(prefix) + r"(\d+)\.")
     for filename in os.listdir(folder_path):
         match = pattern.search(filename)
         if match:
@@ -130,7 +131,13 @@ def rename_and_process_standard_file(src_path, target_folder, prefix, kategoria)
     current_highest = get_highest_number(target_folder, prefix)
     next_number = current_highest + 1
     ext = os.path.splitext(src_path)[1]
-    new_name = f"{prefix}{next_number:04d}{ext}"
+    
+    # ZMIANA: Wyjątek dla kategorii Laptop (brak zer z przodu)
+    if kategoria == "Laptop":
+        new_name = f"{prefix}{next_number}{ext}"
+    else:
+        new_name = f"{prefix}{next_number:04d}{ext}"
+        
     new_path = os.path.join(target_folder, new_name)
     
     try:
@@ -191,7 +198,7 @@ def process_smartphone_file(src_path, target_folder, prefix, data_json, kategori
     try:
         PROCESSED_FILES.add(new_path.lower())
         shutil.move(src_path, new_path)
-        print(f"[{prefix} AI] Sukces! Zapisano plik jako -> {new_name}")
+        print(f"[{prefix}] Sukces! Zapisano plik jako -> {new_name}")
         
         threading.Thread(target=smartphone_clipboard_sequence, args=(new_path, tag_sprzetu, model, sn, kategoria), daemon=True).start()
     except Exception as e:
@@ -229,7 +236,7 @@ class DownloadsAIHandler(FileSystemEventHandler):
 
         Wymagany format:
         {
-          "kategoria": "Kasa Fiskalna" LUB "Telefon Stacjonarny" LUB "UPS" LUB "Skaner kodów" LUB "Monitor" LUB "Komputer AIO" LUB "Telewizor" LUB "Smartfon",
+          "kategoria": "Kasa Fiskalna" LUB "Telefon Stacjonarny" LUB "UPS" LUB "Skaner kodów" LUB "Monitor" LUB "Komputer AIO" LUB "Telewizor" LUB "Smartfon" LUB "Laptop",
           "nazwa_komputera": "odczytana nazwa urządzenia (tylko w przypadku AIO), np. S-PKar-R4, zostaw puste jeśli to inna kategoria",
           "model": "odczytany model pod nazwą (tylko dla AIO), np. ASUS Vivo AiO V241EA_V241EA, zostaw puste jeśli inna kategoria",
           "id_produktu": "odczytany Identyfikator produktu (tylko dla AIO), zostaw puste jeśli inna kategoria",
