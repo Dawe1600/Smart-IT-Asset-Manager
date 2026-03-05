@@ -18,7 +18,8 @@ ICONS_MAP = {
     "UPS": "ikony/ups.png",
     "Skaner kodów": "ikony/skaner.png",
     "Komputer AIO": "ikony/aio.png",
-    "Telewizor": "ikony/tv.png"
+    "Telewizor": "ikony/tv.png",
+    "Smartfon": "ikony/smartfon.png"
 }
 
 def generuj_etykiete(tag, sciezka_ikony, plik_wyjsciowy="temp_etykieta.png"):

@@ -83,8 +83,30 @@ def aio_clipboard_sequence(filepath, nazwa, model, id_prod, kategoria):
     except Exception as e:
         print(f"[!] Błąd w trakcie sekwencji schowka AIO: {e}")
     
-    # Po całej sekwencji pytamy o wydruk, korzystając z pliku printer.py
     zapytaj_i_drukuj(nazwa, kategoria)
+
+def smartphone_clipboard_sequence(filepath, tag, model, sn, kategoria):
+    print("\n--- ROZPOCZYNAM SEKWENCJĘ WYPEŁNIANIA DLA SMARTFONA ---")
+    try:
+        set_clipboard(filepath)
+        print(f"[Smartfon Krok 1/4] Ścieżka skopiowana. Wklej ją w przeglądarce i zatwierdź ENTER.")
+        wait_for_single_enter()
+
+        set_clipboard(tag)
+        print(f"[Smartfon Krok 2/4] TAG ({tag}) skopiowany. Wklej go i zatwierdź ENTER.")
+        wait_for_single_enter()
+
+        set_clipboard(model)
+        print(f"[Smartfon Krok 3/4] Model ({model}) skopiowany. Wklej go i zatwierdź ENTER.")
+        wait_for_single_enter()
+
+        set_clipboard(sn)
+        print(f"[Smartfon Krok 4/4] Numer Seryjny ({sn}) skopiowany. Gotowe! Możesz wkleić.")
+    except Exception as e:
+        print(f"[!] Błąd w trakcie sekwencji schowka Smartfona: {e}")
+    
+    # Po wklejeniu pytamy o wydruk etykiety dla telefonu
+    zapytaj_i_drukuj(tag, kategoria)
 
 # =====================================================================
 # FUNKCJE PRZENOSZENIA I ZMIANY NAZWY
@@ -151,6 +173,30 @@ def process_aio_file(src_path, target_folder, data_json, kategoria="Komputer AIO
     except Exception as e:
         print(f"[AIO] Błąd przy przenoszeniu pliku AIO: {e}")
 
+def process_smartphone_file(src_path, target_folder, prefix, data_json, kategoria="Smartfon"):
+    if not os.path.exists(target_folder):
+        os.makedirs(target_folder, exist_ok=True)
+
+    current_highest = get_highest_number(target_folder, prefix)
+    next_number = current_highest + 1
+    ext = os.path.splitext(src_path)[1]
+    
+    new_name = f"{prefix}{next_number:04d}{ext}"
+    new_path = os.path.join(target_folder, new_name)
+    
+    model = str(data_json.get("model_smartfona") or "Nieznany_Model").strip()
+    sn = str(data_json.get("sn_smartfona") or "Nieznany_SN").strip()
+    tag_sprzetu = os.path.splitext(new_name)[0]
+
+    try:
+        PROCESSED_FILES.add(new_path.lower())
+        shutil.move(src_path, new_path)
+        print(f"[{prefix} AI] Sukces! Zapisano plik jako -> {new_name}")
+        
+        threading.Thread(target=smartphone_clipboard_sequence, args=(new_path, tag_sprzetu, model, sn, kategoria), daemon=True).start()
+    except Exception as e:
+        print(f"[Smartfon] Błąd przy przenoszeniu pliku: {e}")
+
 # =====================================================================
 # HANDLERY WATCHDOGA
 # =====================================================================
@@ -183,10 +229,12 @@ class DownloadsAIHandler(FileSystemEventHandler):
 
         Wymagany format:
         {
-          "kategoria": "Kasa Fiskalna" LUB "Telefon Stacjonarny" LUB "UPS" LUB "Skaner kodów" LUB "Monitor" LUB "Komputer AIO" LUB "Telewizor",
+          "kategoria": "Kasa Fiskalna" LUB "Telefon Stacjonarny" LUB "UPS" LUB "Skaner kodów" LUB "Monitor" LUB "Komputer AIO" LUB "Telewizor" LUB "Smartfon",
           "nazwa_komputera": "odczytana nazwa urządzenia (tylko w przypadku AIO), np. S-PKar-R4, zostaw puste jeśli to inna kategoria",
           "model": "odczytany model pod nazwą (tylko dla AIO), np. ASUS Vivo AiO V241EA_V241EA, zostaw puste jeśli inna kategoria",
-          "id_produktu": "odczytany Identyfikator produktu (tylko dla AIO), zostaw puste jeśli inna kategoria"
+          "id_produktu": "odczytany Identyfikator produktu (tylko dla AIO), zostaw puste jeśli inna kategoria",
+          "model_smartfona": "odczytana uproszczona nazwa rynkowa (tylko dla Smartfon), np. Galaxy A16, zostaw puste jeśli inna kategoria",
+          "sn_smartfona": "odczytany Numer seryjny (tylko dla Smartfon), np. RFGL11E5WZR, zostaw puste jeśli inna kategoria"
         }
         """
 
@@ -241,6 +289,11 @@ class DownloadsAIHandler(FileSystemEventHandler):
                 elif kategoria == "Komputer AIO":
                     target_folder = self.location_config["Komputer AIO"][0]
                     process_aio_file(src_path, target_folder, dane, kategoria)
+                
+                elif kategoria == "Smartfon":
+                    target_folder, prefix = self.location_config["Smartfon"]
+                    process_smartphone_file(src_path, target_folder, prefix, dane, kategoria)
+
                 elif kategoria in self.location_config:
                     target_folder, prefix = self.location_config[kategoria]
                     rename_and_process_standard_file(src_path, target_folder, prefix, kategoria)
