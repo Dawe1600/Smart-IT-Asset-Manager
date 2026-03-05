@@ -1,9 +1,37 @@
-.venv
+# --- Środowisko i zależności ---
+.venv/
+venv/
+env/
 
-pipfile
+# (Uwaga: Pliki Pipfile i Pipfile.lock zazwyczaj SIĘ WYSYŁA na GitHuba, 
+#  żeby inni mogli łatwo zainstalować te same wersje bibliotek poleceniem pipenv install. 
+#  Jeśli jednak używasz ich tylko lokalnie, możesz je tu zostawić).
 
-pipfile.lock
+Pipfile
+Pipfile.lock
 
+# --- Pliki konfiguracyjne z hasłami ---
 path.py
 
-__pycache__
+# --- Cache Pythona ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Pliki testowe i tymczasowe ---
+test_druku.py
+test_etykiety.py
+gotowa_etykieta.png
+temp_etykieta.png
+
+# --- Pliki systemowe i edytorów (opcjonalnie) ---
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# --- Foldery budowania plików .exe (Zaraz nam się to przyda!) ---
+build/
+dist/
+*.spec
