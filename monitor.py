@@ -176,7 +176,7 @@ class DownloadsAIHandler(FileSystemEventHandler):
 
         Wymagany format:
         {
-          "kategoria": "Kasa Fiskalna" LUB "Telefon Stacjonarny" LUB "UPS" LUB "Skaner kodów" LUB "Monitor" LUB "Komputer AIO",
+          "kategoria": "Kasa Fiskalna" LUB "Telefon Stacjonarny" LUB "UPS" LUB "Skaner kodów" LUB "Monitor" LUB "Komputer AIO" LUB "Telewizor",
           "nazwa_komputera": "odczytana nazwa urządzenia (tylko w przypadku AIO), np. S-PKar-R4, zostaw puste jeśli to inna kategoria",
           "model": "odczytany model pod nazwą (tylko dla AIO), np. ASUS Vivo AiO V241EA_V241EA, zostaw puste jeśli inna kategoria",
           "id_produktu": "odczytany Identyfikator produktu (tylko dla AIO), zostaw puste jeśli inna kategoria"
@@ -210,17 +210,21 @@ class DownloadsAIHandler(FileSystemEventHandler):
                     print(f"\n[?] Wykryto Monitor w pliku '{filename}'. Do którego folderu go zapisać?")
                     print("1. P24")
                     print("2. P27")
+                    print("3. TV")
                     
                     while True:
-                        wybor_mon = input("Wpisz numer (1 lub 2) i zatwierdź ENTER: ").strip()
+                        wybor_mon = input("Wpisz numer (1 lub 2 lub 3) i zatwierdź ENTER: ").strip()
                         if wybor_mon == "1":
                             target_folder, prefix = MONITORS_CONFIG["P24"]
                             break
                         elif wybor_mon == "2":
                             target_folder, prefix = MONITORS_CONFIG["P27"]
                             break
+                        elif wybor_mon == "3":
+                            target_folder, prefix = LOCATIONS_CONFIG["Telewizor"]
+                            break
                         else:
-                            print("[!] Niepoprawny wybór. Wpisz 1 lub 2.")
+                            print("[!] Niepoprawny wybór. Wpisz 1 lub 2 lub 3.")
                     
                     rename_and_process_standard_file(src_path, target_folder, prefix)
                     return # Zakończono dla monitora
