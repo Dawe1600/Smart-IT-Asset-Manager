@@ -18,7 +18,7 @@ Ten tryb jest sercem aplikacji i został zaprojektowany do minimalizowania inter
 - **Automatyczna Organizacja**:
     - **Standardowe urządzenia**: Plik zostaje automatycznie przeniesiony do odpowiedniego folderu, a jego nazwa zostaje zmieniona według schematu `PREFIX-NNNN.jpg` (np. `KASA-0015.jpg`).
         - **Wyjątek - Laptopy**: Nazwy plików dla laptopów generowane są bez zer wiodących (np. `LAPTOP12.jpg`).
-    - **Komputery AIO i Smartfony**: Plik jest przenoszony do dedykowanego folderu, a jego nazwa jest generowana automatycznie, zachowując dane odczytane przez AI.
+    - **Komputery AIO**: Plik jest przenoszony do dedykowanego folderu, a jego nazwa jest generowana automatycznie, zachowując dane odczytane przez AI.
     - **Monitory**: Gdy AI rozpozna monitor, aplikacja **zapyta użytkownika**, do którego z podfolderów (`P24`, `P27`, `TV`) ma zostać przypisany.
 - **Asystent Schowka**: Po przetworzeniu pliku, skrypt automatycznie inicjuje sekwencję kopiowania kluczowych danych do schowka. Wystarczy wciskać `ENTER`, aby kolejne dane były ładowane:
     - **Urządzenia standardowe**: 1. Ścieżka do pliku, 2. Tag sprzętu (np. `KASA-0015`).
