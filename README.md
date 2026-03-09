@@ -23,7 +23,6 @@ Ten tryb jest sercem aplikacji i został zaprojektowany do minimalizowania inter
 - **Asystent Schowka**: Po przetworzeniu pliku, skrypt automatycznie inicjuje sekwencję kopiowania kluczowych danych do schowka. Wystarczy wciskać `ENTER`, aby kolejne dane były ładowane:
     - **Urządzenia standardowe**: 1. Ścieżka do pliku, 2. Tag sprzętu (np. `KASA-0015`).
     - **Komputery AIO**: 1. Ścieżka, 2. Nazwa komputera (tag), 3. Model, 4. ID Produktu.
-    - **Smartfony**: 1. Ścieżka, 2. Tag sprzętu (np. `SMART-0001`), 3. Model, 4. Numer seryjny.
 - **Drukowanie Etykiet**: Po każdej operacji aplikacja pyta, czy wydrukować etykietę.
 
 ### 2. Tryb Ręczny (Drag-and-Drop)
