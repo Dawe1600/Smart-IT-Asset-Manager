@@ -108,6 +108,24 @@ def smartphone_clipboard_sequence(filepath, tag, model, sn, kategoria):
     # Po wklejeniu pytamy o wydruk etykiety dla telefonu
     zapytaj_i_drukuj(tag, kategoria)
 
+def printer_clipboard_sequence(filepath, tag, model, kategoria):
+    print("\n--- ROZPOCZYNAM SEKWENCJĘ WYPEŁNIANIA DLA DRUKARKI ---")
+    try:
+        set_clipboard(filepath)
+        print(f"[Drukarka Krok 1/3] Ścieżka skopiowana. Wklej ją w przeglądarce i zatwierdź ENTER.")
+        wait_for_single_enter()
+
+        set_clipboard(tag)
+        print(f"[Drukarka Krok 2/3] TAG ({tag}) skopiowany. Wklej go i zatwierdź ENTER.")
+        wait_for_single_enter()
+
+        set_clipboard(model)
+        print(f"[Drukarka Krok 3/3] Model ({model}) skopiowany. Gotowe! Możesz wkleić.")
+    except Exception as e:
+        print(f"[!] Błąd w trakcie sekwencji schowka Drukarki: {e}")
+    
+    zapytaj_i_drukuj(tag, kategoria)
+
 # =====================================================================
 # FUNKCJE PRZENOSZENIA I ZMIANY NAZWY
 # =====================================================================
@@ -203,6 +221,29 @@ def process_smartphone_file(src_path, target_folder, prefix, data_json, kategori
         threading.Thread(target=smartphone_clipboard_sequence, args=(new_path, tag_sprzetu, model, sn, kategoria), daemon=True).start()
     except Exception as e:
         print(f"[Smartfon] Błąd przy przenoszeniu pliku: {e}")
+
+def process_printer_file(src_path, target_folder, prefix, data_json, kategoria="Drukarka"):
+    if not os.path.exists(target_folder):
+        os.makedirs(target_folder, exist_ok=True)
+
+    current_highest = get_highest_number(target_folder, prefix)
+    next_number = current_highest + 1
+    ext = os.path.splitext(src_path)[1]
+    
+    new_name = f"{prefix}{next_number:04d}{ext}"
+    new_path = os.path.join(target_folder, new_name)
+    
+    model = str(data_json.get("model") or "Nieznany_Model").strip()
+    tag_sprzetu = os.path.splitext(new_name)[0]
+
+    try:
+        PROCESSED_FILES.add(new_path.lower())
+        shutil.move(src_path, new_path)
+        print(f"[{prefix}] Sukces! Zapisano plik jako -> {new_name}")
+        
+        threading.Thread(target=printer_clipboard_sequence, args=(new_path, tag_sprzetu, model, kategoria), daemon=True).start()
+    except Exception as e:
+        print(f"[Drukarka] Błąd przy przenoszeniu pliku: {e}")
 
 # =====================================================================
 # HANDLERY WATCHDOGA
@@ -300,6 +341,10 @@ class DownloadsAIHandler(FileSystemEventHandler):
                 elif kategoria == "Smartfon":
                     target_folder, prefix = self.location_config["Smartfon"]
                     process_smartphone_file(src_path, target_folder, prefix, dane, kategoria)
+
+                elif kategoria == "Drukarka":
+                    target_folder, prefix = self.location_config["Drukarka"]
+                    process_printer_file(src_path, target_folder, prefix, dane, kategoria)
 
                 elif kategoria in self.location_config:
                     target_folder, prefix = self.location_config[kategoria]
