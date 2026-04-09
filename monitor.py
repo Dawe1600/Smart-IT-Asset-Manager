@@ -236,9 +236,9 @@ class DownloadsAIHandler(FileSystemEventHandler):
 
         Wymagany format:
         {
-          "kategoria": "Kasa Fiskalna" LUB "Telefon Stacjonarny" LUB "UPS" LUB "Skaner kodów" LUB "Monitor" LUB "Komputer AIO" LUB "Telewizor" LUB "Smartfon" LUB "Laptop",
+          "kategoria": "Kasa Fiskalna" LUB "Telefon Stacjonarny" LUB "UPS" LUB "Skaner kodów" LUB "Monitor" LUB "Komputer AIO" LUB "Telewizor" LUB "Smartfon" LUB "Laptop" LUB "Drukarka",
           "nazwa_komputera": "odczytana nazwa urządzenia (tylko w przypadku AIO), np. S-PKar-R4, zostaw puste jeśli to inna kategoria",
-          "model": "odczytany model pod nazwą (tylko dla AIO), np. ASUS Vivo AiO V241EA_V241EA, zostaw puste jeśli inna kategoria",
+          "model": "odczytany model pod nazwą (tylko dla AIO), np. ASUS Vivo AiO V241EA_V241EA, zostaw puste jeśli inna kategoria LUB jeśli Drukarka to znajdź model na urządzeniu i zwróć w tym polu",
           "id_produktu": "odczytany Identyfikator produktu (tylko dla AIO), zostaw puste jeśli inna kategoria",
           "model_smartfona": "odczytana uproszczona nazwa rynkowa (tylko dla Smartfon), np. Galaxy A16, zostaw puste jeśli inna kategoria",
           "sn_smartfona": "odczytany Numer seryjny (tylko dla Smartfon), np. RFGL11E5WZR, zostaw puste jeśli inna kategoria"

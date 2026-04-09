@@ -35,3 +35,15 @@ Thumbs.db
 build/
 dist/
 *.spec
+
+strzalka.png
+
+kreator_naklejek.bat
+
+test_druku_bluetooh.py
+
+kreator_naklejek_gui.py
+
+kreator_naklejek_gui.bat
+
+style.qss
